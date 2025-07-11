@@ -1,10 +1,4 @@
-use axum::{
-    extract::Path,
-    http::StatusCode,
-    response::Redirect,
-    routing::get,
-    Router,
-};
+use axum::{Router, extract::Path, http::StatusCode, response::Redirect, routing::get};
 use clap::Parser;
 use serde::Deserialize;
 use std::{collections::HashMap, fs::File};
@@ -44,7 +38,9 @@ fn create_app(rules: HashMap<String, (String, u16)>) -> Router {
         .with_state(rules)
 }
 
-async fn validate_destinations(rules: &HashMap<String, (String, u16)>) -> Result<(), Box<dyn std::error::Error>> {
+async fn validate_destinations(
+    rules: &HashMap<String, (String, u16)>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let client = reqwest::Client::new();
     let mut errors = Vec::new();
 
@@ -85,8 +81,7 @@ async fn validate_destinations(rules: &HashMap<String, (String, u16)>) -> Result
 async fn main() {
     let cli = Cli::parse();
 
-    let rules = load_redirect_rules(&cli.config)
-        .expect("Failed to load redirect rules");
+    let rules = load_redirect_rules(&cli.config).expect("Failed to load redirect rules");
 
     // Validate destinations if requested
     if cli.validate {
@@ -128,7 +123,9 @@ async fn handle_redirect(
     }
 }
 
-fn load_redirect_rules(file_path: &str) -> Result<HashMap<String, (String, u16)>, Box<dyn std::error::Error>> {
+fn load_redirect_rules(
+    file_path: &str,
+) -> Result<HashMap<String, (String, u16)>, Box<dyn std::error::Error>> {
     let file = File::open(file_path)?;
     let mut reader = csv::Reader::from_reader(file);
     let mut rules = HashMap::new();
@@ -150,10 +147,10 @@ fn load_redirect_rules(file_path: &str) -> Result<HashMap<String, (String, u16)>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
-    use tempfile::NamedTempFile;
     use axum::http::StatusCode;
     use std::collections::HashMap;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
 
     #[test]
     fn test_load_redirect_rules() {
@@ -165,8 +162,14 @@ mod tests {
         let rules = load_redirect_rules(temp_file.path().to_str().unwrap()).unwrap();
 
         assert_eq!(rules.len(), 2);
-        assert_eq!(rules.get("/old"), Some(&("https://example.com/new".to_string(), 301)));
-        assert_eq!(rules.get("/temp"), Some(&("https://example.com/temp".to_string(), 302)));
+        assert_eq!(
+            rules.get("/old"),
+            Some(&("https://example.com/new".to_string(), 301))
+        );
+        assert_eq!(
+            rules.get("/temp"),
+            Some(&("https://example.com/temp".to_string(), 302))
+        );
     }
 
     #[test]
@@ -204,15 +207,19 @@ mod tests {
         assert!(result.is_err());
     }
 
-        #[tokio::test]
+    #[tokio::test]
     async fn test_handle_redirect_301() {
         let mut rules = HashMap::new();
-        rules.insert("/old".to_string(), ("https://example.com/new".to_string(), 301));
+        rules.insert(
+            "/old".to_string(),
+            ("https://example.com/new".to_string(), 301),
+        );
 
         let result = handle_redirect(
             axum::extract::Path("old".to_string()),
             axum::extract::State(rules),
-        ).await;
+        )
+        .await;
 
         assert!(result.is_ok());
         // The redirect is created successfully - we can't easily test the exact type
@@ -222,12 +229,16 @@ mod tests {
     #[tokio::test]
     async fn test_handle_redirect_302() {
         let mut rules = HashMap::new();
-        rules.insert("/temp".to_string(), ("https://example.com/temp".to_string(), 302));
+        rules.insert(
+            "/temp".to_string(),
+            ("https://example.com/temp".to_string(), 302),
+        );
 
         let result = handle_redirect(
             axum::extract::Path("temp".to_string()),
             axum::extract::State(rules),
-        ).await;
+        )
+        .await;
 
         assert!(result.is_ok());
         // The redirect is created successfully - we can't easily test the exact type
@@ -241,7 +252,8 @@ mod tests {
         let result = handle_redirect(
             axum::extract::Path("nonexistent".to_string()),
             axum::extract::State(rules),
-        ).await;
+        )
+        .await;
 
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), StatusCode::NOT_FOUND);
@@ -250,12 +262,16 @@ mod tests {
     #[tokio::test]
     async fn test_handle_redirect_invalid_status() {
         let mut rules = HashMap::new();
-        rules.insert("/invalid".to_string(), ("https://example.com".to_string(), 200));
+        rules.insert(
+            "/invalid".to_string(),
+            ("https://example.com".to_string(), 200),
+        );
 
         let result = handle_redirect(
             axum::extract::Path("invalid".to_string()),
             axum::extract::State(rules),
-        ).await;
+        )
+        .await;
 
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), StatusCode::INTERNAL_SERVER_ERROR);
@@ -278,7 +294,7 @@ mod tests {
         assert_eq!(rules[0].status, 301);
     }
 
-        #[test]
+    #[test]
     fn test_multiple_rules_same_url() {
         let mut temp_file = NamedTempFile::new().unwrap();
         writeln!(temp_file, "url,target,status").unwrap();
@@ -289,10 +305,13 @@ mod tests {
 
         // Should have only one entry (the last one overwrites the first)
         assert_eq!(rules.len(), 1);
-        assert_eq!(rules.get("/same"), Some(&("https://example.com/second".to_string(), 302)));
+        assert_eq!(
+            rules.get("/same"),
+            Some(&("https://example.com/second".to_string(), 302))
+        );
     }
 
-        #[tokio::test]
+    #[tokio::test]
     async fn test_integration_server_redirect() {
         // Create a test CSV file
         let mut temp_file = NamedTempFile::new().unwrap();
@@ -312,8 +331,13 @@ mod tests {
             .body(axum::body::Body::empty())
             .unwrap();
 
-        let response = tower::ServiceExt::oneshot(app.clone(), request).await.unwrap();
-        assert_eq!(response.status(), axum::http::StatusCode::PERMANENT_REDIRECT);
+        let response = tower::ServiceExt::oneshot(app.clone(), request)
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            axum::http::StatusCode::PERMANENT_REDIRECT
+        );
 
         // Test redirect for /temp
         let request = axum::http::Request::builder()
@@ -321,8 +345,13 @@ mod tests {
             .body(axum::body::Body::empty())
             .unwrap();
 
-        let response = tower::ServiceExt::oneshot(app.clone(), request).await.unwrap();
-        assert_eq!(response.status(), axum::http::StatusCode::TEMPORARY_REDIRECT);
+        let response = tower::ServiceExt::oneshot(app.clone(), request)
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            axum::http::StatusCode::TEMPORARY_REDIRECT
+        );
 
         // Test 404 for unknown path
         let request = axum::http::Request::builder()
@@ -330,14 +359,19 @@ mod tests {
             .body(axum::body::Body::empty())
             .unwrap();
 
-        let response = tower::ServiceExt::oneshot(app.clone(), request).await.unwrap();
+        let response = tower::ServiceExt::oneshot(app.clone(), request)
+            .await
+            .unwrap();
         assert_eq!(response.status(), axum::http::StatusCode::NOT_FOUND);
     }
 
     #[test]
     fn test_create_app() {
         let mut rules = HashMap::new();
-        rules.insert("/test".to_string(), ("https://example.com".to_string(), 301));
+        rules.insert(
+            "/test".to_string(),
+            ("https://example.com".to_string(), 301),
+        );
 
         let app = create_app(rules);
 
@@ -346,7 +380,7 @@ mod tests {
         assert!(format!("{:?}", app).contains("Router"));
     }
 
-        #[test]
+    #[test]
     fn test_redirect_rule_debug() {
         let rule = RedirectRule {
             url: "/test".to_string(),
@@ -378,18 +412,25 @@ mod tests {
 
         let rules = load_redirect_rules(temp_file.path().to_str().unwrap()).unwrap();
         assert_eq!(rules.len(), 1);
-        assert_eq!(rules.get("/test"), Some(&("https://example.com".to_string(), 301)));
+        assert_eq!(
+            rules.get("/test"),
+            Some(&("https://example.com".to_string(), 301))
+        );
     }
 
     #[tokio::test]
     async fn test_handle_redirect_path_formatting() {
         let mut rules = HashMap::new();
-        rules.insert("/test/path".to_string(), ("https://example.com".to_string(), 301));
+        rules.insert(
+            "/test/path".to_string(),
+            ("https://example.com".to_string(), 301),
+        );
 
         let result = handle_redirect(
             axum::extract::Path("test/path".to_string()),
             axum::extract::State(rules),
-        ).await;
+        )
+        .await;
 
         assert!(result.is_ok());
     }
@@ -404,7 +445,12 @@ mod tests {
 
         let result = load_redirect_rules(temp_file.path().to_str().unwrap());
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Invalid status code: 303"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Invalid status code: 303")
+        );
     }
 
     #[test]
@@ -414,7 +460,7 @@ mod tests {
         assert!(format!("{:?}", app).contains("Router"));
     }
 
-        #[test]
+    #[test]
     fn test_load_redirect_rules_with_whitespace() {
         let mut temp_file = NamedTempFile::new().unwrap();
         writeln!(temp_file, "url,target,status").unwrap();
@@ -442,7 +488,11 @@ mod tests {
     fn test_special_characters_in_urls() {
         let mut temp_file = NamedTempFile::new().unwrap();
         writeln!(temp_file, "url,target,status").unwrap();
-        writeln!(temp_file, "/test-path_with.special?chars,https://example.com/target,301").unwrap();
+        writeln!(
+            temp_file,
+            "/test-path_with.special?chars,https://example.com/target,301"
+        )
+        .unwrap();
 
         let rules = load_redirect_rules(temp_file.path().to_str().unwrap()).unwrap();
         assert_eq!(rules.len(), 1);
@@ -462,20 +512,24 @@ mod tests {
         assert!(error.to_string().contains("Must be 301 or 302"));
     }
 
-        #[tokio::test]
+    #[tokio::test]
     async fn test_handle_redirect_with_query_params() {
         let mut rules = HashMap::new();
-        rules.insert("/api/v1/users".to_string(), ("https://api.example.com/users".to_string(), 301));
+        rules.insert(
+            "/api/v1/users".to_string(),
+            ("https://api.example.com/users".to_string(), 301),
+        );
 
         let result = handle_redirect(
             axum::extract::Path("api/v1/users".to_string()),
             axum::extract::State(rules),
-        ).await;
+        )
+        .await;
 
         assert!(result.is_ok());
     }
 
-            #[tokio::test]
+    #[tokio::test]
     async fn test_validate_destinations_function_signature() {
         // Test that the validation function handles different input scenarios
         // without making actual HTTP calls
@@ -499,8 +553,14 @@ mod tests {
     async fn test_validate_destinations_error_formatting() {
         // Test that validation errors are properly formatted
         let mut rules = HashMap::new();
-        rules.insert("/test1".to_string(), ("http://invalid-domain-12345.local".to_string(), 301));
-        rules.insert("/test2".to_string(), ("http://another-invalid-domain-67890.local".to_string(), 302));
+        rules.insert(
+            "/test1".to_string(),
+            ("http://invalid-domain-12345.local".to_string(), 301),
+        );
+        rules.insert(
+            "/test2".to_string(),
+            ("http://another-invalid-domain-67890.local".to_string(), 302),
+        );
 
         let result = validate_destinations(&rules).await;
         assert!(result.is_err());
@@ -518,7 +578,7 @@ mod tests {
         assert!(result.is_ok());
     }
 
-        #[test]
+    #[test]
     fn test_cli_parsing() {
         use clap::Parser;
 
@@ -551,7 +611,16 @@ mod tests {
         assert_eq!(cli.port, 8080);
 
         // Test with all flags
-        let cli = Cli::parse_from(&["dslf", "--validate", "--config", "custom.csv", "--bind", "192.168.1.1", "--port", "9000"]);
+        let cli = Cli::parse_from(&[
+            "dslf",
+            "--validate",
+            "--config",
+            "custom.csv",
+            "--bind",
+            "192.168.1.1",
+            "--port",
+            "9000",
+        ]);
         assert!(cli.validate);
         assert_eq!(cli.config, "custom.csv");
         assert_eq!(cli.bind, "192.168.1.1");

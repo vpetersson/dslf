@@ -61,3 +61,6 @@ README.md
 # Docker
 Dockerfile
 .dockerignore
+
+# Scripts
+scripts/

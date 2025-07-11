@@ -78,7 +78,38 @@ DSLF_BIND_ADDR=192.168.1.100 DSLF_PORT=9000 ./target/release/dslf
 
 ## Binary Distribution
 
+### Local Build
 The optimized binary is available at: `target/release/dslf`
+
+### GitHub Releases
+Pre-built binaries for multiple platforms are available on the [Releases page](../../releases):
+
+- **Linux x86_64**: `dslf-vX.Y.Z-x86_64-unknown-linux-gnu.tar.gz`
+- **Linux x86_64 (static)**: `dslf-vX.Y.Z-x86_64-unknown-linux-musl.tar.gz`
+- **macOS Intel**: `dslf-vX.Y.Z-x86_64-apple-darwin.tar.gz`
+- **macOS Apple Silicon**: `dslf-vX.Y.Z-aarch64-apple-darwin.tar.gz`
+- **Windows x86_64**: `dslf-vX.Y.Z-x86_64-pc-windows-gnu.zip`
+
+### Creating a Release
+
+**Using the helper script (recommended):**
+```bash
+./scripts/create-release.sh
+```
+
+**Manual release:**
+```bash
+# Tag a new version
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The CI/CD pipeline will automatically:
+1. Build binaries for all supported platforms
+2. Create a GitHub release
+3. Upload all platform binaries as release assets
+
+**Note**: Use semantic versioning (e.g., `v1.0.0`, `v1.2.3`, `v2.0.0-beta.1`) for proper release management.
 
 ## CSV Format
 
