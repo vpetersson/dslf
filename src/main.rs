@@ -47,20 +47,20 @@ async fn validate_destinations(
     println!("Validating {} destination URLs...", rules.len());
 
     for (url, (target, _)) in rules {
-        print!("Checking {}: {} ... ", url, target);
+        print!("Checking {url}: {target} ... ");
 
         match client.head(target).send().await {
             Ok(response) => {
                 if response.status().is_success() || response.status().is_redirection() {
                     println!("✓ OK");
                 } else {
-                    println!("✗ HTTP {}", response.status());
-                    errors.push(format!("{}: HTTP {}", target, response.status()));
+                    println!("✗ HTTP {status}", status = response.status());
+                    errors.push(format!("{target}: HTTP {status}", status = response.status()));
                 }
             }
             Err(e) => {
-                println!("✗ Error: {}", e);
-                errors.push(format!("{}: {}", target, e));
+                println!("✗ Error: {e}");
+                errors.push(format!("{target}: {e}"));
             }
         }
     }
@@ -71,9 +71,9 @@ async fn validate_destinations(
     } else {
         println!("\n✗ Validation failed for {} URLs:", errors.len());
         for error in &errors {
-            println!("  - {}", error);
+            println!("  - {error}");
         }
-        Err(format!("Validation failed for {} destinations", errors.len()).into())
+        Err(format!("Validation failed for {count} destinations", count = errors.len()).into())
     }
 }
 
@@ -86,7 +86,7 @@ async fn main() {
     // Validate destinations if requested
     if cli.validate {
         if let Err(e) = validate_destinations(&rules).await {
-            eprintln!("Validation failed: {}", e);
+            eprintln!("Validation failed: {e}");
             std::process::exit(1);
         }
         return;
@@ -94,10 +94,10 @@ async fn main() {
 
     let app = create_app(rules);
 
-    let bind_addr = format!("{}:{}", cli.bind, cli.port);
+    let bind_addr = format!("{bind}:{port}", bind = cli.bind, port = cli.port);
     let listener = TcpListener::bind(&bind_addr)
         .await
-        .unwrap_or_else(|e| panic!("Failed to bind to {}: {}", bind_addr, e));
+        .unwrap_or_else(|e| panic!("Failed to bind to {bind_addr}: {e}"));
 
     println!("Forwarding service running on http://{bind_addr}");
 
@@ -135,7 +135,7 @@ fn load_redirect_rules(
 
         // Validate status code
         if rule.status != 301 && rule.status != 302 {
-            return Err(format!("Invalid status code: {}. Must be 301 or 302", rule.status).into());
+            return Err(format!("Invalid status code: {status}. Must be 301 or 302", status = rule.status).into());
         }
 
         rules.insert(rule.url, (rule.target, rule.status));
