@@ -1,16 +1,50 @@
 use axum::{
     Router,
+    body::Body,
     extract::Path,
-    http::{StatusCode, header},
+    http::{Request, StatusCode, header},
+    middleware::{self, Next},
     response::Response,
     routing::get,
 };
 use clap::Parser;
 use serde::Deserialize;
-use std::{collections::HashMap, fs::File};
+use std::{
+    collections::HashMap,
+    fs::File,
+    time::{Instant, SystemTime, UNIX_EPOCH},
+};
 use tokio::net::TcpListener;
 
 type AppState = (HashMap<String, (String, u16)>, bool);
+
+async fn logging_middleware(request: Request<Body>, next: Next) -> Response {
+    let method = request.method().clone();
+    let uri = request.uri().clone();
+    let start = Instant::now();
+
+    let response = next.run(request).await;
+
+    let duration = start.elapsed();
+    let status = response.status();
+
+    // Simple timestamp - seconds since epoch for consistency across platforms
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    println!(
+        "{} {} {} {} {:.2}ms",
+        timestamp,
+        method,
+        uri.path_and_query().map_or(uri.path(), |pq| pq.as_str()),
+        status.as_u16(),
+        duration.as_secs_f64() * 1000.0
+    );
+
+    response
+}
 
 #[derive(Debug, Deserialize)]
 struct RedirectRule {
@@ -42,13 +76,23 @@ struct Cli {
     /// Use modern HTTP redirect codes (307/308) instead of classic ones (301/302)
     #[arg(short, long)]
     modern: bool,
+
+    /// Disable request logging to stdout
+    #[arg(long)]
+    silent: bool,
 }
 
-fn create_app(rules: HashMap<String, (String, u16)>, modern: bool) -> Router {
+fn create_app(rules: HashMap<String, (String, u16)>, modern: bool, enable_logging: bool) -> Router {
     let state: AppState = (rules, modern);
-    Router::new()
+    let mut app = Router::new()
         .route("/{*path}", get(handle_redirect))
-        .with_state(state)
+        .with_state(state);
+
+    if enable_logging {
+        app = app.layer(middleware::from_fn(logging_middleware));
+    }
+
+    app
 }
 
 async fn validate_destinations(
@@ -112,7 +156,7 @@ async fn main() {
         return;
     }
 
-    let app = create_app(rules, cli.modern);
+    let app = create_app(rules, cli.modern, !cli.silent);
 
     let bind_addr = format!("{bind}:{port}", bind = cli.bind, port = cli.port);
     let listener = TcpListener::bind(&bind_addr)
@@ -370,7 +414,7 @@ mod tests {
         let rules = load_redirect_rules(temp_file.path().to_str().unwrap()).unwrap();
 
         // Create the app using the new function
-        let app = create_app(rules, false);
+        let app = create_app(rules, false, false);
 
         // Test redirect for /test
         let request = axum::http::Request::builder()
@@ -414,7 +458,7 @@ mod tests {
             ("https://example.com".to_string(), 301),
         );
 
-        let app = create_app(rules, false);
+        let app = create_app(rules, false, false);
 
         // We can't test much about the router without running it,
         // but we can verify it was created successfully
@@ -497,8 +541,25 @@ mod tests {
     #[test]
     fn test_empty_hashmap() {
         let rules = HashMap::new();
-        let app = create_app(rules, false);
+        let app = create_app(rules, false, false);
         assert!(format!("{app:?}").contains("Router"));
+    }
+
+    #[test]
+    fn test_create_app_with_logging() {
+        let mut rules = HashMap::new();
+        rules.insert(
+            "/test".to_string(),
+            ("https://example.com".to_string(), 301),
+        );
+
+        // Test app with logging enabled
+        let app_with_logging = create_app(rules.clone(), false, true);
+        assert!(format!("{app_with_logging:?}").contains("Router"));
+
+        // Test app without logging
+        let app_without_logging = create_app(rules, false, false);
+        assert!(format!("{app_without_logging:?}").contains("Router"));
     }
 
     #[test]
@@ -687,7 +748,7 @@ mod tests {
         let rules = load_redirect_rules(temp_file.path().to_str().unwrap()).unwrap();
 
         // Test classic redirect codes (default behavior)
-        let app_classic = create_app(rules.clone(), false);
+        let app_classic = create_app(rules.clone(), false, false);
 
         // Test 301 -> MOVED_PERMANENTLY (301)
         let request = axum::http::Request::builder()
@@ -718,7 +779,7 @@ mod tests {
         );
 
         // Test modern redirect codes (with --modern flag)
-        let app_modern = create_app(rules.clone(), true);
+        let app_modern = create_app(rules.clone(), true, false);
 
         // Test 301 -> PERMANENT_REDIRECT (308)
         let request = axum::http::Request::builder()
@@ -806,6 +867,7 @@ mod tests {
         assert_eq!(cli.bind, "0.0.0.0");
         assert_eq!(cli.port, 3000);
         assert!(!cli.modern);
+        assert!(!cli.silent); // Logging enabled by default
 
         // Test with validation flag
         let cli = Cli::parse_from(["dslf", "--validate"]);
@@ -852,5 +914,15 @@ mod tests {
         assert_eq!(cli.bind, "0.0.0.0");
         assert_eq!(cli.port, 3000);
         assert!(cli.modern);
+        assert!(!cli.silent);
+
+        // Test with silent flag
+        let cli = Cli::parse_from(["dslf", "--silent"]);
+        assert!(!cli.validate);
+        assert_eq!(cli.config, "redirects.csv");
+        assert_eq!(cli.bind, "0.0.0.0");
+        assert_eq!(cli.port, 3000);
+        assert!(!cli.modern);
+        assert!(cli.silent);
     }
 }

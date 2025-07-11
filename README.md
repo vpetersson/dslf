@@ -189,6 +189,24 @@ With the `--modern` flag, DSLF uses modern HTTP redirect codes:
 4. **Set up SSL**: Use Let's Encrypt for HTTPS
 5. **Run as service**: Use systemd, Docker, or similar to keep it running
 
+### Platform-as-a-Service Deployment
+
+DSLF is **ideal for modern PaaS platforms** like Fly.io, Railway, Render, and similar services due to its:
+
+- **Tiny footprint**: 5MB binary uses minimal resources and starts instantly
+- **No database required**: CSV-based configuration eliminates infrastructure complexity
+- **Low memory usage**: Typically runs in <10MB RAM, perfect for cost-effective deployments
+- **Fast cold starts**: Sub-second startup times ideal for serverless-style deployments
+- **Single binary**: No dependencies or build steps required on the platform
+
+**Example Fly.io deployment:**
+```bash
+# Deploy with a simple fly.toml
+fly deploy
+```
+
+The minimal resource requirements mean you can run DSLF on the smallest available instances while still handling thousands of redirects per second, making it extremely cost-effective for personal and small business use cases.
+
 ### Deployment Patterns
 
 **Custom Docker Image (Recommended for production):**
