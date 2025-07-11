@@ -1,0 +1,6 @@
+url,target,status
+/gh,https://github.com/yourusername,301
+/blog,https://yourblog.com,301
+/promo,https://yoursite.com/special-offer,302
+/docs,https://docs.yourproject.com,301
+/contact,https://yoursite.com/contact,301

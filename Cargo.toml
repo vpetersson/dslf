@@ -1,0 +1,18 @@
+[package]
+name = "dslf"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+axum = "0.8.4"
+clap = { version = "4.5.41", features = ["derive", "env"] }
+csv = "1.3.1"
+reqwest = { version = "0.12.22", default-features = false, features = ["rustls-tls"] }
+serde = { version = "1.0.219", features = ["derive"] }
+tokio = { version = "1.46.1", features = ["full"] }
+
+[dev-dependencies]
+http-body-util = "0.1.3"
+hyper = "1.6.0"
+tempfile = "3.20.0"
+tower = "0.5.2"

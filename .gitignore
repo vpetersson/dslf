@@ -1,0 +1,69 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+*.pdb
+
+# Cargo lock file (uncomment if this is a library crate)
+# Cargo.lock
+
+# Test coverage output
+/coverage/
+*.profraw
+tarpaulin-report.html
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-*
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Backup files
+*.bak
+*.backup
+
+# Test files
+test-*.csv
+*-test.csv
+
+# Distribution archives
+*.tar.gz
+*.zip
+*.deb
+*.rpm
+
+# Local configuration overrides
+local.csv
+config-local.csv
+
+# Added by cargo
+
+/target
