@@ -1,8 +1,16 @@
-use axum::{Router, extract::Path, http::StatusCode, response::Redirect, routing::get};
+use axum::{
+    Router,
+    extract::Path,
+    http::{StatusCode, header},
+    response::Response,
+    routing::get,
+};
 use clap::Parser;
 use serde::Deserialize;
 use std::{collections::HashMap, fs::File};
 use tokio::net::TcpListener;
+
+type AppState = (HashMap<String, (String, u16)>, bool);
 
 #[derive(Debug, Deserialize)]
 struct RedirectRule {
@@ -30,12 +38,17 @@ struct Cli {
     /// Port to listen on (can also be set via DSLF_PORT env var)
     #[arg(short, long, env = "DSLF_PORT", default_value = "3000")]
     port: u16,
+
+    /// Use modern HTTP redirect codes (307/308) instead of classic ones (301/302)
+    #[arg(short, long)]
+    modern: bool,
 }
 
-fn create_app(rules: HashMap<String, (String, u16)>) -> Router {
+fn create_app(rules: HashMap<String, (String, u16)>, modern: bool) -> Router {
+    let state: AppState = (rules, modern);
     Router::new()
         .route("/{*path}", get(handle_redirect))
-        .with_state(rules)
+        .with_state(state)
 }
 
 async fn validate_destinations(
@@ -99,7 +112,7 @@ async fn main() {
         return;
     }
 
-    let app = create_app(rules);
+    let app = create_app(rules, cli.modern);
 
     let bind_addr = format!("{bind}:{port}", bind = cli.bind, port = cli.port);
     let listener = TcpListener::bind(&bind_addr)
@@ -115,19 +128,42 @@ async fn main() {
 
 async fn handle_redirect(
     Path(path): Path<String>,
-    axum::extract::State(rules): axum::extract::State<HashMap<String, (String, u16)>>,
-) -> Result<Redirect, StatusCode> {
+    axum::extract::State((rules, modern)): axum::extract::State<AppState>,
+) -> Result<Response, StatusCode> {
     let request_path = format!("/{path}");
 
+    // Try exact match first
     if let Some((target, status)) = rules.get(&request_path) {
-        match *status {
-            301 => Ok(Redirect::permanent(target)),
-            302 => Ok(Redirect::temporary(target)),
-            _ => Err(StatusCode::INTERNAL_SERVER_ERROR),
-        }
+        create_redirect_response(target, *status, modern)
     } else {
-        Err(StatusCode::NOT_FOUND)
+        // If exact match fails, try without trailing slash
+        let trimmed_path = request_path.trim_end_matches('/');
+        if let Some((target, status)) = rules.get(trimmed_path) {
+            create_redirect_response(target, *status, modern)
+        } else {
+            Err(StatusCode::NOT_FOUND)
+        }
     }
+}
+
+fn create_redirect_response(
+    target: &str,
+    status: u16,
+    modern: bool,
+) -> Result<Response, StatusCode> {
+    let actual_status = match (status, modern) {
+        (301, false) => StatusCode::MOVED_PERMANENTLY, // 301
+        (301, true) => StatusCode::PERMANENT_REDIRECT, // 308
+        (302, false) => StatusCode::FOUND,             // 302
+        (302, true) => StatusCode::TEMPORARY_REDIRECT, // 307
+        _ => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+    };
+
+    Ok(Response::builder()
+        .status(actual_status)
+        .header(header::LOCATION, target)
+        .body(axum::body::Body::empty())
+        .unwrap())
 }
 
 fn load_redirect_rules(
@@ -228,7 +264,7 @@ mod tests {
 
         let result = handle_redirect(
             axum::extract::Path("old".to_string()),
-            axum::extract::State(rules),
+            axum::extract::State((rules, false)),
         )
         .await;
 
@@ -247,7 +283,7 @@ mod tests {
 
         let result = handle_redirect(
             axum::extract::Path("temp".to_string()),
-            axum::extract::State(rules),
+            axum::extract::State((rules, false)),
         )
         .await;
 
@@ -262,7 +298,7 @@ mod tests {
 
         let result = handle_redirect(
             axum::extract::Path("nonexistent".to_string()),
-            axum::extract::State(rules),
+            axum::extract::State((rules, false)),
         )
         .await;
 
@@ -280,7 +316,7 @@ mod tests {
 
         let result = handle_redirect(
             axum::extract::Path("invalid".to_string()),
-            axum::extract::State(rules),
+            axum::extract::State((rules, false)),
         )
         .await;
 
@@ -334,7 +370,7 @@ mod tests {
         let rules = load_redirect_rules(temp_file.path().to_str().unwrap()).unwrap();
 
         // Create the app using the new function
-        let app = create_app(rules);
+        let app = create_app(rules, false);
 
         // Test redirect for /test
         let request = axum::http::Request::builder()
@@ -345,10 +381,7 @@ mod tests {
         let response = tower::ServiceExt::oneshot(app.clone(), request)
             .await
             .unwrap();
-        assert_eq!(
-            response.status(),
-            axum::http::StatusCode::PERMANENT_REDIRECT
-        );
+        assert_eq!(response.status(), axum::http::StatusCode::MOVED_PERMANENTLY);
 
         // Test redirect for /temp
         let request = axum::http::Request::builder()
@@ -359,10 +392,7 @@ mod tests {
         let response = tower::ServiceExt::oneshot(app.clone(), request)
             .await
             .unwrap();
-        assert_eq!(
-            response.status(),
-            axum::http::StatusCode::TEMPORARY_REDIRECT
-        );
+        assert_eq!(response.status(), axum::http::StatusCode::FOUND);
 
         // Test 404 for unknown path
         let request = axum::http::Request::builder()
@@ -384,7 +414,7 @@ mod tests {
             ("https://example.com".to_string(), 301),
         );
 
-        let app = create_app(rules);
+        let app = create_app(rules, false);
 
         // We can't test much about the router without running it,
         // but we can verify it was created successfully
@@ -439,7 +469,7 @@ mod tests {
 
         let result = handle_redirect(
             axum::extract::Path("test/path".to_string()),
-            axum::extract::State(rules),
+            axum::extract::State((rules, false)),
         )
         .await;
 
@@ -467,7 +497,7 @@ mod tests {
     #[test]
     fn test_empty_hashmap() {
         let rules = HashMap::new();
-        let app = create_app(rules);
+        let app = create_app(rules, false);
         assert!(format!("{app:?}").contains("Router"));
     }
 
@@ -533,7 +563,7 @@ mod tests {
 
         let result = handle_redirect(
             axum::extract::Path("api/v1/users".to_string()),
-            axum::extract::State(rules),
+            axum::extract::State((rules, false)),
         )
         .await;
 
@@ -589,6 +619,182 @@ mod tests {
         assert!(result.is_ok());
     }
 
+    #[tokio::test]
+    async fn test_handle_redirect_trailing_slash() {
+        let mut rules = HashMap::new();
+        rules.insert(
+            "/github".to_string(),
+            ("https://github.com/vpetersson".to_string(), 301),
+        );
+
+        // Test exact match (without trailing slash)
+        let result = handle_redirect(
+            axum::extract::Path("github".to_string()),
+            axum::extract::State((rules.clone(), false)),
+        )
+        .await;
+        assert!(result.is_ok());
+
+        // Test with trailing slash - should also work
+        let result = handle_redirect(
+            axum::extract::Path("github/".to_string()),
+            axum::extract::State((rules.clone(), false)),
+        )
+        .await;
+        assert!(result.is_ok());
+
+        // Test with multiple trailing slashes
+        let result = handle_redirect(
+            axum::extract::Path("github///".to_string()),
+            axum::extract::State((rules.clone(), false)),
+        )
+        .await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_handle_redirect_trailing_slash_priority() {
+        let mut rules = HashMap::new();
+        // Add both versions to test priority
+        rules.insert(
+            "/api".to_string(),
+            ("https://api.example.com/v1".to_string(), 301),
+        );
+        rules.insert(
+            "/api/".to_string(),
+            ("https://api.example.com/v2".to_string(), 302),
+        );
+
+        // Test that exact match takes priority
+        let result = handle_redirect(
+            axum::extract::Path("api/".to_string()),
+            axum::extract::State((rules.clone(), false)),
+        )
+        .await;
+        assert!(result.is_ok());
+        // This should match the exact /api/ rule (302), not the /api rule (301)
+    }
+
+    #[tokio::test]
+    async fn test_integration_server_redirect_modern() {
+        // Create a test CSV file
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(temp_file, "url,target,status").unwrap();
+        writeln!(temp_file, "/test301,https://example.com/301,301").unwrap();
+        writeln!(temp_file, "/test302,https://example.com/302,302").unwrap();
+
+        // Load the rules
+        let rules = load_redirect_rules(temp_file.path().to_str().unwrap()).unwrap();
+
+        // Test classic redirect codes (default behavior)
+        let app_classic = create_app(rules.clone(), false);
+
+        // Test 301 -> MOVED_PERMANENTLY (301)
+        let request = axum::http::Request::builder()
+            .uri("/test301")
+            .body(axum::body::Body::empty())
+            .unwrap();
+
+        let response = tower::ServiceExt::oneshot(app_classic.clone(), request)
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            axum::http::StatusCode::MOVED_PERMANENTLY // 301
+        );
+
+        // Test 302 -> FOUND (302)
+        let request = axum::http::Request::builder()
+            .uri("/test302")
+            .body(axum::body::Body::empty())
+            .unwrap();
+
+        let response = tower::ServiceExt::oneshot(app_classic.clone(), request)
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            axum::http::StatusCode::FOUND // 302
+        );
+
+        // Test modern redirect codes (with --modern flag)
+        let app_modern = create_app(rules.clone(), true);
+
+        // Test 301 -> PERMANENT_REDIRECT (308)
+        let request = axum::http::Request::builder()
+            .uri("/test301")
+            .body(axum::body::Body::empty())
+            .unwrap();
+
+        let response = tower::ServiceExt::oneshot(app_modern.clone(), request)
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            axum::http::StatusCode::PERMANENT_REDIRECT // 308
+        );
+
+        // Test 302 -> TEMPORARY_REDIRECT (307)
+        let request = axum::http::Request::builder()
+            .uri("/test302")
+            .body(axum::body::Body::empty())
+            .unwrap();
+
+        let response = tower::ServiceExt::oneshot(app_modern.clone(), request)
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            axum::http::StatusCode::TEMPORARY_REDIRECT // 307
+        );
+    }
+
+    #[test]
+    fn test_create_redirect_response() {
+        // Test classic codes
+        let response = create_redirect_response("https://example.com", 301, false);
+        assert!(response.is_ok());
+        assert_eq!(response.unwrap().status(), StatusCode::MOVED_PERMANENTLY); // 301
+
+        let response = create_redirect_response("https://example.com", 302, false);
+        assert!(response.is_ok());
+        assert_eq!(response.unwrap().status(), StatusCode::FOUND); // 302
+
+        // Test modern codes
+        let response = create_redirect_response("https://example.com", 301, true);
+        assert!(response.is_ok());
+        assert_eq!(response.unwrap().status(), StatusCode::PERMANENT_REDIRECT); // 308
+
+        let response = create_redirect_response("https://example.com", 302, true);
+        assert!(response.is_ok());
+        assert_eq!(response.unwrap().status(), StatusCode::TEMPORARY_REDIRECT); // 307
+
+        // Test invalid status code
+        let response = create_redirect_response("https://example.com", 200, false);
+        assert!(response.is_err());
+    }
+
+    #[test]
+    fn test_create_redirect_response_headers() {
+        // Test that Location header is set correctly
+        let response = create_redirect_response("https://example.com/target", 301, false);
+        assert!(response.is_ok());
+        let response = response.unwrap();
+
+        let location = response.headers().get("location").unwrap();
+        assert_eq!(location, "https://example.com/target");
+        assert_eq!(response.status(), StatusCode::MOVED_PERMANENTLY);
+
+        // Test modern redirect with Location header
+        let response = create_redirect_response("https://github.com/vpetersson", 302, true);
+        assert!(response.is_ok());
+        let response = response.unwrap();
+
+        let location = response.headers().get("location").unwrap();
+        assert_eq!(location, "https://github.com/vpetersson");
+        assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT); // 307
+    }
+
     #[test]
     fn test_cli_parsing() {
         use clap::Parser;
@@ -599,6 +805,7 @@ mod tests {
         assert_eq!(cli.config, "redirects.csv");
         assert_eq!(cli.bind, "0.0.0.0");
         assert_eq!(cli.port, 3000);
+        assert!(!cli.modern);
 
         // Test with validation flag
         let cli = Cli::parse_from(["dslf", "--validate"]);
@@ -636,5 +843,14 @@ mod tests {
         assert_eq!(cli.config, "custom.csv");
         assert_eq!(cli.bind, "192.168.1.1");
         assert_eq!(cli.port, 9000);
+        assert!(!cli.modern);
+
+        // Test with modern flag
+        let cli = Cli::parse_from(["dslf", "--modern"]);
+        assert!(!cli.validate);
+        assert_eq!(cli.config, "redirects.csv");
+        assert_eq!(cli.bind, "0.0.0.0");
+        assert_eq!(cli.port, 3000);
+        assert!(cli.modern);
     }
 }

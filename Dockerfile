@@ -1,5 +1,5 @@
 # Build stage
-FROM rust:1.87-slim AS builder
+FROM rust:1.88-slim AS builder
 
 # Create app directory
 WORKDIR /app
@@ -26,4 +26,4 @@ COPY redirects.csv /redirects.csv
 EXPOSE 3000
 
 # Run the binary
-CMD ["/dslf"]
+ENTRYPOINT ["/dslf"]

@@ -81,6 +81,20 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
+    - name: Prepare Docker tags
+      id: meta
+      run: |
+        # Sanitize ref name for Docker tags (replace / with -)
+        CLEAN_REF=$(echo "${{ github.ref_name }}" | sed 's/\//-/g')
+        echo "clean_ref=${CLEAN_REF}" >> $GITHUB_OUTPUT
+
+        # Determine if this should be 'latest' tag
+        if [[ "${{ github.ref_name }}" == "master" ]]; then
+          echo "version_tag=latest" >> $GITHUB_OUTPUT
+        else
+          echo "version_tag=${CLEAN_REF}" >> $GITHUB_OUTPUT
+        fi
+
     - name: Log in to GitHub Container Registry
       if: github.event_name == 'push'
       run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
@@ -100,16 +114,19 @@ jobs:
         platforms: ${{ github.event_name == 'push' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
         push: ${{ github.event_name == 'push' }}
         load: ${{ github.event_name != 'push' }}
+        # Enable Docker layer caching for faster builds
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
         tags: |
-          vpetersson/dslf:${{ github.ref_name == 'master' && 'latest' || github.ref_name }}
-          ghcr.io/${{ github.repository_owner }}/dslf:${{ github.ref_name == 'master' && 'latest' || github.ref_name }}
+          vpetersson/dslf:${{ steps.meta.outputs.version_tag }}
+          ghcr.io/${{ github.repository_owner }}/dslf:${{ steps.meta.outputs.version_tag }}
           vpetersson/dslf:${{ github.sha }}
           ghcr.io/${{ github.repository_owner }}/dslf:${{ github.sha }}
 
     - name: Test Docker container
       if: github.event_name != 'push'
       run: |
-        docker run --rm vpetersson/dslf:${{ github.sha }} /dslf --help
+        docker run --rm vpetersson/dslf:${{ github.sha }} --help
         echo "Docker container test passed"
 
   release:

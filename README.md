@@ -18,7 +18,8 @@ A blazing fast, self-hosted alternative to bit.ly and similar link shortening se
 - **Minimal codebase**: Single binary with minimal dependencies
 - **Fast**: Built with Axum web framework for high performance
 - **Simple configuration**: CSV-based redirect rules
-- **HTTP compliant**: Supports 301 (permanent) and 302 (temporary) redirects
+- **HTTP compliant**: Supports both classic (301/302) and modern (307/308) redirect codes
+- **Flexible routing**: Handles trailing slashes automatically
 - **Well tested**: 70%+ test coverage with comprehensive error handling
 - **URL validation**: Optional destination URL validation before deployment
 
@@ -53,6 +54,7 @@ A blazing fast, self-hosted alternative to bit.ly and similar link shortening se
 - `--config <file>` or `-c <file>`: Specify a custom CSV file path (default: redirects.csv)
 - `--bind <address>` or `-b <address>`: Bind address (default: 0.0.0.0, env: DSLF_BIND_ADDR)
 - `--port <port>` or `-p <port>`: Port to listen on (default: 3000, env: DSLF_PORT)
+- `--modern` or `-m`: Use modern HTTP redirect codes (307/308) instead of classic ones (301/302)
 - `--help` or `-h`: Show help information
 
 **Note**: The `--validate` option makes actual HTTP requests to check if destinations are reachable. Use this during deployment or in CI/CD pipelines, not during development testing.
@@ -71,6 +73,9 @@ A blazing fast, self-hosted alternative to bit.ly and similar link shortening se
 
 # Use environment variables
 DSLF_BIND_ADDR=192.168.1.100 DSLF_PORT=9000 ./target/release/dslf
+
+# Use modern HTTP redirect codes (307/308 instead of 301/302)
+./target/release/dslf --modern
 
 # Validate destinations in a custom config file
 ./target/release/dslf --validate --config custom-redirects.csv
@@ -162,6 +167,18 @@ The CI/CD pipeline will automatically:
 - `target`: The full URL to redirect to (e.g., `https://github.com/yourusername`)
 - `status`: HTTP status code (301 for permanent, 302 for temporary/tracking)
 
+### HTTP Redirect Codes
+
+By default, DSLF uses classic HTTP redirect codes:
+- **301**: Moved Permanently (classic permanent redirect)
+- **302**: Found (classic temporary redirect)
+
+With the `--modern` flag, DSLF uses modern HTTP redirect codes:
+- **308**: Permanent Redirect (modern permanent redirect, preserves request method)
+- **307**: Temporary Redirect (modern temporary redirect, preserves request method)
+
+**When to use modern codes**: The modern codes (307/308) are more semantically correct as they guarantee the request method (GET, POST, etc.) won't change during redirection. Use `--modern` if your clients rely on specific HTTP methods being preserved.
+
 ## Deployment
 
 ### Production Setup
@@ -251,6 +268,9 @@ docker run -p 9000:9000 -e DSLF_PORT=9000 -v ./my-redirects.csv:/redirects.csv d
 
 # Run with CLI arguments
 docker run -p 8080:8080 dslf /dslf --port 8080 --config /redirects.csv
+
+# Use modern HTTP redirect codes
+docker run -p 3000:3000 dslf /dslf --modern
 
 # Validate URLs before starting
 docker run --rm dslf /dslf --validate
