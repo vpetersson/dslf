@@ -353,6 +353,14 @@ The project maintains high code quality standards:
 - **Testing**: 70%+ test coverage with comprehensive unit and integration tests
 - **Documentation**: Inline code documentation and comprehensive README
 
+### CI/CD Optimizations
+
+The GitHub Actions workflow includes several optimizations for faster builds:
+- **Rust caching**: Uses built-in `actions/cache` to cache dependencies, registry, and target directories
+- **Parallel execution**: Test and Docker jobs run in parallel
+- **Optimized Docker builds**: Single build per workflow run with conditional multi-platform support
+- **Smart conditionals**: Multi-platform builds and pushes only occur on push events, single-platform builds for testing on PRs
+
 ## Performance
 
 **Why DSLF outperforms traditional link shorteners:**
