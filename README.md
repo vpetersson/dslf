@@ -84,9 +84,11 @@ DSLF_BIND_ADDR=192.168.1.100 DSLF_PORT=9000 ./target/release/dslf
 ## Binary Distribution
 
 ### Local Build
+
 The optimized binary is available at: `target/release/dslf`
 
 ### GitHub Releases
+
 Pre-built binaries for multiple platforms are available on the [Releases page](../../releases):
 
 - **Linux x86_64**: `dslf-vX.Y.Z-x86_64-unknown-linux-gnu.tar.gz`
@@ -98,17 +100,20 @@ Pre-built binaries for multiple platforms are available on the [Releases page](.
 ### Creating a Release
 
 **Using the helper script (recommended):**
+
 ```bash
 ./scripts/create-release.sh
 ```
 
 The release script provides an interactive experience that:
+
 - **Validates environment**: Ensures you're in a git repository with no uncommitted changes
 - **Suggests versions**: Automatically calculates next patch/minor/major versions based on existing tags
 - **Runs quality checks**: Executes tests and builds the release binary to ensure everything works
 - **Creates and pushes tags**: Handles git tagging and pushing to trigger the CI/CD pipeline
 
 **Script workflow:**
+
 1. Checks git status and current branch
 2. Parses latest tag to suggest next semantic version
 3. Allows you to choose: patch (v1.0.1), minor (v1.1.0), major (v2.0.0), or custom version
@@ -119,11 +124,13 @@ The release script provides an interactive experience that:
 8. Displays links to monitor the CI/CD pipeline
 
 **Prerequisites:**
+
 - Clean git working directory (no uncommitted changes)
 - All tests must pass
 - Binary must build successfully
 
 **Example session:**
+
 ```bash
 $ ./scripts/create-release.sh
 [INFO] Latest tag: v0.1.0
@@ -147,6 +154,7 @@ Continue? (y/N): y
 ```
 
 **Manual release:**
+
 ```bash
 # Tag a new version
 git tag v1.0.0
@@ -154,6 +162,7 @@ git push origin v1.0.0
 ```
 
 The CI/CD pipeline will automatically:
+
 1. Build binaries for all supported platforms
 2. Create a GitHub release
 3. Upload all platform binaries as release assets
@@ -170,10 +179,12 @@ The CI/CD pipeline will automatically:
 ### HTTP Redirect Codes
 
 By default, DSLF uses classic HTTP redirect codes:
+
 - **301**: Moved Permanently (classic permanent redirect)
 - **302**: Found (classic temporary redirect)
 
 With the `--modern` flag, DSLF uses modern HTTP redirect codes:
+
 - **308**: Permanent Redirect (modern permanent redirect, preserves request method)
 - **307**: Temporary Redirect (modern temporary redirect, preserves request method)
 
@@ -200,6 +211,7 @@ DSLF is **ideal for modern PaaS platforms** like Fly.io, Railway, Render, and si
 - **Single binary**: No dependencies or build steps required on the platform
 
 **Example Fly.io deployment:**
+
 ```bash
 # Deploy with a simple fly.toml
 fly deploy
@@ -210,12 +222,14 @@ The minimal resource requirements mean you can run DSLF on the smallest availabl
 ### Deployment Patterns
 
 **Custom Docker Image (Recommended for production):**
+
 ```dockerfile
 FROM vpetersson/dslf:latest
 COPY production-redirects.csv /redirects.csv
 ```
 
 **Kubernetes Deployment:**
+
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -330,6 +344,7 @@ services:
 ```
 
 **Multi-stage Dockerfile (56.8MB final image):**
+
 - Architecture-independent build
 - Distroless runtime for security and minimal size
 - No shell or unnecessary tools in final image
@@ -356,11 +371,13 @@ server {
 ### Testing
 
 Run the test suite:
+
 ```bash
 cargo test
 ```
 
 Generate coverage report:
+
 ```bash
 cargo tarpaulin --out Html --output-dir coverage
 ```
@@ -378,6 +395,7 @@ chmod +x scripts/create-release.sh
 ```
 
 The script handles:
+
 - **Version management**: Suggests next semantic version based on existing tags
 - **Quality assurance**: Runs tests and builds to ensure release readiness
 - **Git operations**: Creates properly formatted tags and pushes to trigger CI/CD
@@ -386,6 +404,7 @@ The script handles:
 ### Code Quality
 
 The project maintains high code quality standards:
+
 - **Formatting**: `cargo fmt --all` (enforced in CI)
 - **Linting**: `cargo clippy --all-targets --all-features -- -D warnings` (enforced in CI)
 - **Testing**: 70%+ test coverage with comprehensive unit and integration tests
@@ -394,6 +413,7 @@ The project maintains high code quality standards:
 ### CI/CD Optimizations
 
 The GitHub Actions workflow includes several optimizations for faster builds:
+
 - **Rust caching**: Uses built-in `actions/cache` to cache dependencies, registry, and target directories
 - **Parallel execution**: Test and Docker jobs run in parallel
 - **Optimized Docker builds**: Single build per workflow run with conditional multi-platform support
