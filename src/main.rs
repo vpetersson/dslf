@@ -78,7 +78,7 @@ struct Cli {
     modern: bool,
 
     /// Disable request logging to stdout
-    #[arg(long)]
+    #[arg(short, long)]
     silent: bool,
 }
 
@@ -918,6 +918,15 @@ mod tests {
 
         // Test with silent flag
         let cli = Cli::parse_from(["dslf", "--silent"]);
+        assert!(!cli.validate);
+        assert_eq!(cli.config, "redirects.csv");
+        assert_eq!(cli.bind, "0.0.0.0");
+        assert_eq!(cli.port, 3000);
+        assert!(!cli.modern);
+        assert!(cli.silent);
+
+        // Test with silent flag shorthand
+        let cli = Cli::parse_from(["dslf", "-s"]);
         assert!(!cli.validate);
         assert_eq!(cli.config, "redirects.csv");
         assert_eq!(cli.bind, "0.0.0.0");
