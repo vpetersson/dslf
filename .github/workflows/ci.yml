@@ -126,7 +126,7 @@ jobs:
     - name: Test Docker container
       if: github.event_name != 'push'
       run: |
-        docker run --rm vpetersson/dslf:${{ github.sha }} /dslf --help
+        docker run --rm vpetersson/dslf:${{ github.sha }} --help
         echo "Docker container test passed"
 
   release:
