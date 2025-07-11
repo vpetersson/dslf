@@ -97,6 +97,50 @@ Pre-built binaries for multiple platforms are available on the [Releases page](.
 ./scripts/create-release.sh
 ```
 
+The release script provides an interactive experience that:
+- **Validates environment**: Ensures you're in a git repository with no uncommitted changes
+- **Suggests versions**: Automatically calculates next patch/minor/major versions based on existing tags
+- **Runs quality checks**: Executes tests and builds the release binary to ensure everything works
+- **Creates and pushes tags**: Handles git tagging and pushing to trigger the CI/CD pipeline
+
+**Script workflow:**
+1. Checks git status and current branch
+2. Parses latest tag to suggest next semantic version
+3. Allows you to choose: patch (v1.0.1), minor (v1.1.0), major (v2.0.0), or custom version
+4. Runs `cargo test` to ensure all tests pass
+5. Builds `cargo build --release` to verify the binary compiles
+6. Tests the binary execution with `--help` flag
+7. Creates annotated git tag and pushes to origin
+8. Displays links to monitor the CI/CD pipeline
+
+**Prerequisites:**
+- Clean git working directory (no uncommitted changes)
+- All tests must pass
+- Binary must build successfully
+
+**Example session:**
+```bash
+$ ./scripts/create-release.sh
+[INFO] Latest tag: v0.1.0
+Suggested next versions:
+  1) Patch release: v0.1.1
+  2) Minor release: v0.2.0
+  3) Major release: v1.0.0
+  4) Custom version
+Choose an option (1-4): 2
+[INFO] Creating release: v0.2.0
+[INFO] Running tests...
+[INFO] Building release binary...
+[INFO] Testing binary...
+[INFO] All checks passed!
+This will:
+  - Create and push tag: v0.2.0
+  - Trigger CI/CD pipeline to build and publish release
+Continue? (y/N): y
+[INFO] ✅ Release v0.2.0 created successfully!
+[INFO] 🚀 CI/CD pipeline will now build and publish the release
+```
+
 **Manual release:**
 ```bash
 # Tag a new version
@@ -108,7 +152,7 @@ The CI/CD pipeline will automatically:
 1. Build binaries for all supported platforms
 2. Create a GitHub release
 3. Upload all platform binaries as release assets
-4. Build and publish Docker images to Docker Hub and GitHub Container Registry
+4. Build and publish multi-platform Docker images (linux/amd64, linux/arm64) to Docker Hub and GitHub Container Registry
 
 **Note**: Use semantic versioning (e.g., `v1.0.0`, `v1.2.3`, `v2.0.0-beta.1`) for proper release management.
 
@@ -188,6 +232,8 @@ docker run -p 8080:8080 -e DSLF_PORT=8080 -v ./my-redirects.csv:/redirects.csv v
 docker run --rm -v $(pwd)/redirects.csv:/redirects.csv vpetersson/dslf /dslf --validate
 ```
 
+> **Note**: Docker images are built for multiple platforms (`linux/amd64`, `linux/arm64`) so they'll run natively on both Intel/AMD and ARM-based systems (including Apple Silicon Macs) without platform warnings.
+
 **Build and run locally:**
 
 ```bash
@@ -250,6 +296,7 @@ services:
 - Distroless runtime for security and minimal size
 - No shell or unnecessary tools in final image
 - Automatically published to Docker Hub and GitHub Container Registry
+- **Multi-platform support**: Available for both `linux/amd64` and `linux/arm64` architectures
 
 ### Nginx Configuration
 
@@ -266,7 +313,9 @@ server {
 }
 ```
 
-## Testing
+## Development
+
+### Testing
 
 Run the test suite:
 ```bash
@@ -277,6 +326,32 @@ Generate coverage report:
 ```bash
 cargo tarpaulin --out Html --output-dir coverage
 ```
+
+### Release Management
+
+The project includes a comprehensive release script at `scripts/create-release.sh` that automates the entire release process:
+
+```bash
+# Make script executable (first time only)
+chmod +x scripts/create-release.sh
+
+# Create a new release
+./scripts/create-release.sh
+```
+
+The script handles:
+- **Version management**: Suggests next semantic version based on existing tags
+- **Quality assurance**: Runs tests and builds to ensure release readiness
+- **Git operations**: Creates properly formatted tags and pushes to trigger CI/CD
+- **Documentation**: Provides clear feedback and links to monitor the release process
+
+### Code Quality
+
+The project maintains high code quality standards:
+- **Formatting**: `cargo fmt --all` (enforced in CI)
+- **Linting**: `cargo clippy --all-targets --all-features -- -D warnings` (enforced in CI)
+- **Testing**: 70%+ test coverage with comprehensive unit and integration tests
+- **Documentation**: Inline code documentation and comprehensive README
 
 ## Performance
 

@@ -76,18 +76,6 @@ jobs:
         docker run --rm dslf:${{ github.sha }} /dslf --help
         echo "Docker container test passed"
 
-    - name: Save Docker image
-      run: |
-        mkdir -p /tmp/docker-cache
-        docker save dslf:${{ github.sha }} > /tmp/docker-cache/dslf.tar
-
-    - name: Upload Docker image artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: docker-image
-        path: /tmp/docker-cache/dslf.tar
-        retention-days: 1
-
   docker-push:
     name: Docker Push
     runs-on: ubuntu-latest
@@ -101,14 +89,8 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Download Docker image artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: docker-image
-        path: /tmp/docker-cache
-
-    - name: Load Docker image
-      run: docker load < /tmp/docker-cache/dslf.tar
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
 
     - name: Log in to GitHub Container Registry
       run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
@@ -119,41 +101,17 @@ jobs:
         username: vpetersson
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Push Docker images
-      run: |
-        set -x
-
-        # Image names
-        GITHUB_IMAGE_ID=ghcr.io/${{ github.repository_owner }}/dslf
-        GITHUB_IMAGE_ID=$(echo $GITHUB_IMAGE_ID | tr '[A-Z]' '[a-z]')
-        DOCKER_HUB_IMAGE_ID=vpetersson/dslf
-
-        # Determine version
-        VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
-
-        # Strip "v" prefix from tag name if it's a version tag
-        [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
-
-        # Use "latest" for master branch
-        [ "$VERSION" == "master" ] && VERSION=latest
-
-        echo "VERSION=$VERSION"
-
-        # Tag images
-        docker tag dslf:${{ github.sha }} $GITHUB_IMAGE_ID:$VERSION
-        docker tag dslf:${{ github.sha }} $DOCKER_HUB_IMAGE_ID:$VERSION
-
-        # Push to GitHub Container Registry
-        docker push $GITHUB_IMAGE_ID:$VERSION
-
-        # Push to Docker Hub
-        docker push $DOCKER_HUB_IMAGE_ID:$VERSION
-
-        # Also push with SHA tag for traceability
-        docker tag dslf:${{ github.sha }} $GITHUB_IMAGE_ID:${{ github.sha }}
-        docker tag dslf:${{ github.sha }} $DOCKER_HUB_IMAGE_ID:${{ github.sha }}
-        docker push $GITHUB_IMAGE_ID:${{ github.sha }}
-        docker push $DOCKER_HUB_IMAGE_ID:${{ github.sha }}
+    - name: Build and push multi-platform Docker images
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: |
+          vpetersson/dslf:${{ github.ref_name == 'master' && 'latest' || github.ref_name }}
+          ghcr.io/${{ github.repository_owner }}/dslf:${{ github.ref_name == 'master' && 'latest' || github.ref_name }}
+          vpetersson/dslf:${{ github.sha }}
+          ghcr.io/${{ github.repository_owner }}/dslf:${{ github.sha }}
 
   release:
     name: Create Release

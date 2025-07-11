@@ -2,6 +2,20 @@
 
 # DSLF Release Helper Script
 # Creates a new release with proper semantic versioning
+#
+# This script automates the release process by:
+# - Validating the git repository state (clean working directory, proper branch)
+# - Parsing existing tags to suggest next semantic version (patch/minor/major)
+# - Running comprehensive quality checks (tests, build, binary validation)
+# - Creating and pushing annotated git tags to trigger CI/CD pipeline
+#
+# The CI/CD pipeline will then automatically:
+# - Build cross-platform binaries for Linux, macOS, and Windows
+# - Create GitHub releases with downloadable assets
+# - Build and push Docker images to Docker Hub and GitHub Container Registry
+#
+# Usage: ./scripts/create-release.sh
+# Prerequisites: Clean git working directory, all tests must pass
 
 set -e
 
