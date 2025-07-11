@@ -26,4 +26,4 @@ COPY redirects.csv /redirects.csv
 EXPOSE 3000
 
 # Run the binary
-CMD ["/dslf"]
+ENTRYPOINT ["/dslf"]
