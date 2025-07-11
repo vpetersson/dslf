@@ -55,7 +55,10 @@ async fn validate_destinations(
                     println!("✓ OK");
                 } else {
                     println!("✗ HTTP {status}", status = response.status());
-                    errors.push(format!("{target}: HTTP {status}", status = response.status()));
+                    errors.push(format!(
+                        "{target}: HTTP {status}",
+                        status = response.status()
+                    ));
                 }
             }
             Err(e) => {
@@ -73,7 +76,11 @@ async fn validate_destinations(
         for error in &errors {
             println!("  - {error}");
         }
-        Err(format!("Validation failed for {count} destinations", count = errors.len()).into())
+        Err(format!(
+            "Validation failed for {count} destinations",
+            count = errors.len()
+        )
+        .into())
     }
 }
 
@@ -135,7 +142,11 @@ fn load_redirect_rules(
 
         // Validate status code
         if rule.status != 301 && rule.status != 302 {
-            return Err(format!("Invalid status code: {status}. Must be 301 or 302", status = rule.status).into());
+            return Err(format!(
+                "Invalid status code: {status}. Must be 301 or 302",
+                status = rule.status
+            )
+            .into());
         }
 
         rules.insert(rule.url, (rule.target, rule.status));
