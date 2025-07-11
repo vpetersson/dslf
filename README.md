@@ -108,6 +108,7 @@ The CI/CD pipeline will automatically:
 1. Build binaries for all supported platforms
 2. Create a GitHub release
 3. Upload all platform binaries as release assets
+4. Build and publish Docker images to Docker Hub and GitHub Container Registry
 
 **Note**: Use semantic versioning (e.g., `v1.0.0`, `v1.2.3`, `v2.0.0-beta.1`) for proper release management.
 
@@ -127,9 +128,67 @@ The CI/CD pipeline will automatically:
 4. **Set up SSL**: Use Let's Encrypt for HTTPS
 5. **Run as service**: Use systemd, Docker, or similar to keep it running
 
+### Deployment Patterns
+
+**Custom Docker Image (Recommended for production):**
+```dockerfile
+FROM vpetersson/dslf:latest
+COPY production-redirects.csv /redirects.csv
+```
+
+**Kubernetes Deployment:**
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dslf
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: dslf
+  template:
+    metadata:
+      labels:
+        app: dslf
+    spec:
+      containers:
+      - name: dslf
+        image: your-registry/dslf:v1.0
+        ports:
+        - containerPort: 3000
+        env:
+        - name: DSLF_BIND_ADDR
+          value: "0.0.0.0"
+        - name: DSLF_PORT
+          value: "3000"
+```
+
 ### Docker Deployment
 
-**Build and run the container:**
+**Using pre-built images:**
+
+```bash
+# From Docker Hub - latest version
+docker run -p 3000:3000 -v $(pwd)/redirects.csv:/redirects.csv vpetersson/dslf
+
+# From Docker Hub - specific version
+docker run -p 3000:3000 -v $(pwd)/redirects.csv:/redirects.csv vpetersson/dslf:v1.0.0
+
+# From GitHub Container Registry - latest version
+docker run -p 3000:3000 -v $(pwd)/redirects.csv:/redirects.csv ghcr.io/mvip/dslf
+
+# From GitHub Container Registry - specific version
+docker run -p 3000:3000 -v $(pwd)/redirects.csv:/redirects.csv ghcr.io/mvip/dslf:v1.0.0
+
+# With custom configuration
+docker run -p 8080:8080 -e DSLF_PORT=8080 -v ./my-redirects.csv:/redirects.csv vpetersson/dslf
+
+# Validate URLs before starting
+docker run --rm -v $(pwd)/redirects.csv:/redirects.csv vpetersson/dslf /dslf --validate
+```
+
+**Build and run locally:**
 
 ```bash
 # Build the image
@@ -151,10 +210,46 @@ docker run -p 8080:8080 dslf /dslf --port 8080 --config /redirects.csv
 docker run --rm dslf /dslf --validate
 ```
 
+**Creating your own custom image:**
+
+```dockerfile
+# Dockerfile
+FROM vpetersson/dslf:latest
+COPY my-redirects.csv /redirects.csv
+```
+
+```bash
+# Build and run your custom image
+docker build -t my-link-shortener .
+docker run -p 3000:3000 my-link-shortener
+
+# Or push to your own registry
+docker tag my-link-shortener yourregistry/my-link-shortener:v1.0
+docker push yourregistry/my-link-shortener:v1.0
+```
+
+**Docker Compose:**
+
+```yaml
+version: '3.8'
+services:
+  dslf:
+    image: vpetersson/dslf:latest  # or ghcr.io/mvip/dslf:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - "./redirects.csv:/redirects.csv"
+    environment:
+      - DSLF_BIND_ADDR=0.0.0.0
+      - DSLF_PORT=3000
+    restart: unless-stopped
+```
+
 **Multi-stage Dockerfile (56.8MB final image):**
 - Architecture-independent build
 - Distroless runtime for security and minimal size
 - No shell or unnecessary tools in final image
+- Automatically published to Docker Hub and GitHub Container Registry
 
 ### Nginx Configuration
 
@@ -203,3 +298,5 @@ cargo tarpaulin --out Html --output-dir coverage
 - **API endpoints**: Redirect to versioned APIs with easy config updates
 - **A/B testing**: Easily switch destinations by updating the CSV
 - **Event links**: Temporary redirects for conferences, webinars, etc.
+- **Custom Docker images**: Bake your redirects into a custom image for easy deployment
+- **Microservice architecture**: Deploy as a lightweight redirect service in your stack
