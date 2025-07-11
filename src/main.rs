@@ -99,7 +99,7 @@ async fn main() {
         .await
         .unwrap_or_else(|e| panic!("Failed to bind to {}: {}", bind_addr, e));
 
-    println!("Forwarding service running on http://{}", bind_addr);
+    println!("Forwarding service running on http://{bind_addr}");
 
     axum::serve(listener, app)
         .await
@@ -110,7 +110,7 @@ async fn handle_redirect(
     Path(path): Path<String>,
     axum::extract::State(rules): axum::extract::State<HashMap<String, (String, u16)>>,
 ) -> Result<Redirect, StatusCode> {
-    let request_path = format!("/{}", path);
+    let request_path = format!("/{path}");
 
     if let Some((target, status)) = rules.get(&request_path) {
         match *status {
@@ -377,7 +377,7 @@ mod tests {
 
         // We can't test much about the router without running it,
         // but we can verify it was created successfully
-        assert!(format!("{:?}", app).contains("Router"));
+        assert!(format!("{app:?}").contains("Router"));
     }
 
     #[test]
@@ -388,7 +388,7 @@ mod tests {
             status: 301,
         };
 
-        let debug_str = format!("{:?}", rule);
+        let debug_str = format!("{rule:?}");
         assert!(debug_str.contains("/test"));
         assert!(debug_str.contains("https://example.com"));
         assert!(debug_str.contains("301"));
@@ -457,7 +457,7 @@ mod tests {
     fn test_empty_hashmap() {
         let rules = HashMap::new();
         let app = create_app(rules);
-        assert!(format!("{:?}", app).contains("Router"));
+        assert!(format!("{app:?}").contains("Router"));
     }
 
     #[test]
@@ -477,7 +477,7 @@ mod tests {
         let mut temp_file = NamedTempFile::new().unwrap();
         writeln!(temp_file, "url,target,status").unwrap();
         for i in 0..1000 {
-            writeln!(temp_file, "/test{},https://example.com/target{},301", i, i).unwrap();
+            writeln!(temp_file, "/test{i},https://example.com/target{i},301").unwrap();
         }
 
         let rules = load_redirect_rules(temp_file.path().to_str().unwrap()).unwrap();
@@ -583,35 +583,35 @@ mod tests {
         use clap::Parser;
 
         // Test default values
-        let cli = Cli::parse_from(&["dslf"]);
+        let cli = Cli::parse_from(["dslf"]);
         assert!(!cli.validate);
         assert_eq!(cli.config, "redirects.csv");
         assert_eq!(cli.bind, "0.0.0.0");
         assert_eq!(cli.port, 3000);
 
         // Test with validation flag
-        let cli = Cli::parse_from(&["dslf", "--validate"]);
+        let cli = Cli::parse_from(["dslf", "--validate"]);
         assert!(cli.validate);
         assert_eq!(cli.config, "redirects.csv");
         assert_eq!(cli.bind, "0.0.0.0");
         assert_eq!(cli.port, 3000);
 
         // Test with custom config file
-        let cli = Cli::parse_from(&["dslf", "--config", "custom.csv"]);
+        let cli = Cli::parse_from(["dslf", "--config", "custom.csv"]);
         assert!(!cli.validate);
         assert_eq!(cli.config, "custom.csv");
         assert_eq!(cli.bind, "0.0.0.0");
         assert_eq!(cli.port, 3000);
 
         // Test with custom bind and port
-        let cli = Cli::parse_from(&["dslf", "--bind", "127.0.0.1", "--port", "8080"]);
+        let cli = Cli::parse_from(["dslf", "--bind", "127.0.0.1", "--port", "8080"]);
         assert!(!cli.validate);
         assert_eq!(cli.config, "redirects.csv");
         assert_eq!(cli.bind, "127.0.0.1");
         assert_eq!(cli.port, 8080);
 
         // Test with all flags
-        let cli = Cli::parse_from(&[
+        let cli = Cli::parse_from([
             "dslf",
             "--validate",
             "--config",
