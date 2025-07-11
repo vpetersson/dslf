@@ -1,4 +1,10 @@
-use axum::{Router, extract::Path, http::{StatusCode, header}, response::Response, routing::get};
+use axum::{
+    Router,
+    extract::Path,
+    http::{StatusCode, header},
+    response::Response,
+    routing::get,
+};
 use clap::Parser;
 use serde::Deserialize;
 use std::{collections::HashMap, fs::File};
@@ -140,12 +146,16 @@ async fn handle_redirect(
     }
 }
 
-fn create_redirect_response(target: &str, status: u16, modern: bool) -> Result<Response, StatusCode> {
+fn create_redirect_response(
+    target: &str,
+    status: u16,
+    modern: bool,
+) -> Result<Response, StatusCode> {
     let actual_status = match (status, modern) {
-        (301, false) => StatusCode::MOVED_PERMANENTLY,      // 301
-        (301, true) => StatusCode::PERMANENT_REDIRECT,      // 308
-        (302, false) => StatusCode::FOUND,                  // 302
-        (302, true) => StatusCode::TEMPORARY_REDIRECT,      // 307
+        (301, false) => StatusCode::MOVED_PERMANENTLY, // 301
+        (301, true) => StatusCode::PERMANENT_REDIRECT, // 308
+        (302, false) => StatusCode::FOUND,             // 302
+        (302, true) => StatusCode::TEMPORARY_REDIRECT, // 307
         _ => return Err(StatusCode::INTERNAL_SERVER_ERROR),
     };
 
@@ -371,10 +381,7 @@ mod tests {
         let response = tower::ServiceExt::oneshot(app.clone(), request)
             .await
             .unwrap();
-        assert_eq!(
-            response.status(),
-            axum::http::StatusCode::MOVED_PERMANENTLY
-        );
+        assert_eq!(response.status(), axum::http::StatusCode::MOVED_PERMANENTLY);
 
         // Test redirect for /temp
         let request = axum::http::Request::builder()
@@ -385,10 +392,7 @@ mod tests {
         let response = tower::ServiceExt::oneshot(app.clone(), request)
             .await
             .unwrap();
-        assert_eq!(
-            response.status(),
-            axum::http::StatusCode::FOUND
-        );
+        assert_eq!(response.status(), axum::http::StatusCode::FOUND);
 
         // Test 404 for unknown path
         let request = axum::http::Request::builder()
