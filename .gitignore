@@ -67,3 +67,4 @@ config-local.csv
 # Added by cargo
 
 /target
+imported-redirects.csv

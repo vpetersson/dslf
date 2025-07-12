@@ -7,7 +7,7 @@ use axum::{
     response::Response,
     routing::get,
 };
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use serde::Deserialize;
 use std::{
     collections::HashMap,
@@ -15,6 +15,8 @@ use std::{
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 use tokio::net::TcpListener;
+
+mod import;
 
 type AppState = (HashMap<String, (String, u16)>, bool);
 
@@ -57,6 +59,9 @@ struct RedirectRule {
 #[command(name = "dslf")]
 #[command(about = "A minimal HTTP forwarding service")]
 struct Cli {
+    #[command(subcommand)]
+    command: Option<Commands>,
+
     /// Validate all destination URLs before starting
     #[arg(short, long)]
     validate: bool,
@@ -80,6 +85,21 @@ struct Cli {
     /// Disable request logging to stdout
     #[arg(short, long)]
     silent: bool,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Import links from external providers
+    ///
+    /// Requires environment variables:
+    /// - REBRANDLY_API_KEY or REBRANDLY_TOKEN for rebrandly provider
+    Import {
+        /// Provider to import from (currently supports: rebrandly)
+        provider: String,
+        /// Output file path for the imported redirects
+        #[arg(short, long, default_value = "imported-redirects.csv")]
+        output: String,
+    },
 }
 
 fn create_app(rules: HashMap<String, (String, u16)>, modern: bool, enable_logging: bool) -> Router {
@@ -144,6 +164,15 @@ async fn validate_destinations(
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
+
+    // Handle import command
+    if let Some(Commands::Import { provider, output }) = cli.command {
+        if let Err(e) = import::import_links(&provider, &output).await {
+            eprintln!("Import failed: {e}");
+            std::process::exit(1);
+        }
+        return;
+    }
 
     let rules = load_redirect_rules(&cli.config).expect("Failed to load redirect rules");
 
