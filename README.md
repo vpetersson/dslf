@@ -22,6 +22,7 @@ A blazing fast, self-hosted alternative to bit.ly and similar link shortening se
 - **Flexible routing**: Handles trailing slashes automatically
 - **Well tested**: 70%+ test coverage with comprehensive error handling
 - **URL validation**: Optional destination URL validation before deployment
+- **Import capability**: Import links from external providers (Rebrandly supported)
 
 ## Usage
 
@@ -50,6 +51,8 @@ A blazing fast, self-hosted alternative to bit.ly and similar link shortening se
 
 ## Command Line Options
 
+### Main Options
+
 - `--validate` or `-v`: Validate all destination URLs before starting (use in deployment/CI)
 - `--config <file>` or `-c <file>`: Specify a custom CSV file path (default: redirects.csv)
 - `--bind <address>` or `-b <address>`: Bind address (default: 0.0.0.0, env: DSLF_BIND_ADDR)
@@ -58,6 +61,29 @@ A blazing fast, self-hosted alternative to bit.ly and similar link shortening se
 - `--help` or `-h`: Show help information
 
 **Note**: The `--validate` option makes actual HTTP requests to check if destinations are reachable. Use this during deployment or in CI/CD pipelines, not during development testing.
+
+### Import Command
+
+DSLF can import links from external URL shortening services and convert them to the standard CSV format:
+
+```bash
+# Import from Rebrandly
+REBRANDLY_API_KEY=your_api_key_here dslf import rebrandly
+
+# Import to custom output file
+REBRANDLY_API_KEY=your_api_key_here dslf import rebrandly --output my-links.csv
+
+# Alternative environment variable name
+REBRANDLY_TOKEN=your_api_key_here dslf import rebrandly
+```
+
+**Supported providers:**
+- **Rebrandly**: Imports all active links from your Rebrandly account
+
+**Environment Variables:**
+- `REBRANDLY_API_KEY` or `REBRANDLY_TOKEN`: Your Rebrandly API key
+
+The import command handles pagination automatically and will fetch all your links regardless of quantity. Links are converted to the DSLF format with permanent redirects (301) by default.
 
 ### Examples
 
@@ -79,6 +105,12 @@ DSLF_BIND_ADDR=192.168.1.100 DSLF_PORT=9000 ./target/release/dslf
 
 # Validate destinations in a custom config file
 ./target/release/dslf --validate --config custom-redirects.csv
+
+# Import links from Rebrandly
+REBRANDLY_API_KEY=your_api_key ./target/release/dslf import rebrandly
+
+# Import from Rebrandly to custom output file
+REBRANDLY_API_KEY=your_api_key ./target/release/dslf import rebrandly --output rebrandly-links.csv
 ```
 
 ## Binary Distribution
