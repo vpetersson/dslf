@@ -66,6 +66,10 @@ struct Cli {
     #[arg(short, long)]
     validate: bool,
 
+    /// Check configuration file syntax without validating destinations
+    #[arg(short = 'k', long)]
+    check: bool,
+
     /// Path to the CSV file containing redirect rules
     #[arg(short, long, default_value = "redirects.csv")]
     config: String,
@@ -175,6 +179,14 @@ async fn main() {
     }
 
     let rules = load_redirect_rules(&cli.config).expect("Failed to load redirect rules");
+
+    // Check configuration file syntax if requested
+    if cli.check {
+        println!("✓ Configuration file syntax is valid!");
+        println!("  - File: {}", cli.config);
+        println!("  - Rules loaded: {}", rules.len());
+        return;
+    }
 
     // Validate destinations if requested
     if cli.validate {
@@ -887,39 +899,17 @@ mod tests {
 
     #[test]
     fn test_cli_parsing() {
-        use clap::Parser;
-
         // Test default values
         let cli = Cli::parse_from(["dslf"]);
         assert!(!cli.validate);
+        assert!(!cli.check);
         assert_eq!(cli.config, "redirects.csv");
         assert_eq!(cli.bind, "0.0.0.0");
         assert_eq!(cli.port, 3000);
         assert!(!cli.modern);
-        assert!(!cli.silent); // Logging enabled by default
+        assert!(!cli.silent);
 
-        // Test with validation flag
-        let cli = Cli::parse_from(["dslf", "--validate"]);
-        assert!(cli.validate);
-        assert_eq!(cli.config, "redirects.csv");
-        assert_eq!(cli.bind, "0.0.0.0");
-        assert_eq!(cli.port, 3000);
-
-        // Test with custom config file
-        let cli = Cli::parse_from(["dslf", "--config", "custom.csv"]);
-        assert!(!cli.validate);
-        assert_eq!(cli.config, "custom.csv");
-        assert_eq!(cli.bind, "0.0.0.0");
-        assert_eq!(cli.port, 3000);
-
-        // Test with custom bind and port
-        let cli = Cli::parse_from(["dslf", "--bind", "127.0.0.1", "--port", "8080"]);
-        assert!(!cli.validate);
-        assert_eq!(cli.config, "redirects.csv");
-        assert_eq!(cli.bind, "127.0.0.1");
-        assert_eq!(cli.port, 8080);
-
-        // Test with all flags
+        // Test with all options
         let cli = Cli::parse_from([
             "dslf",
             "--validate",
@@ -930,7 +920,9 @@ mod tests {
             "--port",
             "9000",
         ]);
+
         assert!(cli.validate);
+        assert!(!cli.check);
         assert_eq!(cli.config, "custom.csv");
         assert_eq!(cli.bind, "192.168.1.1");
         assert_eq!(cli.port, 9000);
@@ -939,15 +931,40 @@ mod tests {
         // Test with modern flag
         let cli = Cli::parse_from(["dslf", "--modern"]);
         assert!(!cli.validate);
+        assert!(!cli.check);
         assert_eq!(cli.config, "redirects.csv");
         assert_eq!(cli.bind, "0.0.0.0");
         assert_eq!(cli.port, 3000);
         assert!(cli.modern);
-        assert!(!cli.silent);
+
+        // Test with check flag (long form)
+        let cli = Cli::parse_from(["dslf", "--check"]);
+        assert!(!cli.validate);
+        assert!(cli.check);
+        assert_eq!(cli.config, "redirects.csv");
+        assert_eq!(cli.bind, "0.0.0.0");
+        assert_eq!(cli.port, 3000);
+        assert!(!cli.modern);
+
+        // Test with check flag (short form)
+        let cli = Cli::parse_from(["dslf", "-k"]);
+        assert!(!cli.validate);
+        assert!(cli.check);
+        assert_eq!(cli.config, "redirects.csv");
+        assert_eq!(cli.bind, "0.0.0.0");
+        assert_eq!(cli.port, 3000);
+        assert!(!cli.modern);
+
+        // Test with check and custom config
+        let cli = Cli::parse_from(["dslf", "--check", "--config", "test.csv"]);
+        assert!(!cli.validate);
+        assert!(cli.check);
+        assert_eq!(cli.config, "test.csv");
 
         // Test with silent flag
         let cli = Cli::parse_from(["dslf", "--silent"]);
         assert!(!cli.validate);
+        assert!(!cli.check);
         assert_eq!(cli.config, "redirects.csv");
         assert_eq!(cli.bind, "0.0.0.0");
         assert_eq!(cli.port, 3000);
@@ -957,6 +974,7 @@ mod tests {
         // Test with silent flag shorthand
         let cli = Cli::parse_from(["dslf", "-s"]);
         assert!(!cli.validate);
+        assert!(!cli.check);
         assert_eq!(cli.config, "redirects.csv");
         assert_eq!(cli.bind, "0.0.0.0");
         assert_eq!(cli.port, 3000);
