@@ -6,12 +6,12 @@ A blazing fast, self-hosted alternative to bit.ly and similar link shortening se
 
 **Replace bit.ly, TinyURL, and other link shorteners with your own service:**
 
-- 🚀 **Self-hosted**: Full control over your links and data
-- ⚡ **Blazing fast**: Sub-millisecond response times
-- 🔒 **Privacy-focused**: No tracking, no analytics unless you want them
-- 💾 **Tiny footprint**: Single 5MB binary, minimal memory usage
-- 📝 **Simple config**: Just a CSV file - no database required
-- 🛡️ **Reliable**: No third-party dependencies for core functionality
+- **Self-hosted**: Full control over your links and data
+- **Blazing fast**: Sub-millisecond response times
+- **Privacy-focused**: No tracking, no analytics unless you want them
+- **Tiny footprint**: Single 5MB binary, minimal memory usage
+- **Simple config**: Just a CSV file - no database required
+- **Reliable**: No third-party dependencies for core functionality
 
 ## Features
 
@@ -56,13 +56,14 @@ A blazing fast, self-hosted alternative to bit.ly and similar link shortening se
 ### Main Options
 
 - `--validate` or `-v`: Validate all destination URLs before starting (use in deployment/CI)
+- `--check` or `-k`: Check configuration file syntax without validating destinations
 - `--config <file>` or `-c <file>`: Specify a custom CSV file path (default: redirects.csv)
 - `--bind <address>` or `-b <address>`: Bind address (default: 0.0.0.0, env: DSLF_BIND_ADDR)
 - `--port <port>` or `-p <port>`: Port to listen on (default: 3000, env: DSLF_PORT)
 - `--modern` or `-m`: Use modern HTTP redirect codes (307/308) instead of classic ones (301/302)
 - `--help` or `-h`: Show help information
 
-**Note**: The `--validate` option makes actual HTTP requests to check if destinations are reachable. Use this during deployment or in CI/CD pipelines, not during development testing.
+**Note**: The `--validate` option makes actual HTTP requests to check if destinations are reachable. Use this during deployment or in CI/CD pipelines, not during development testing. The `--check` option only validates the CSV file format and syntax without making any network requests, making it ideal for quick configuration validation during development or as a fast pre-flight check before deployment.
 
 ### Import Command
 
@@ -92,6 +93,12 @@ The import command handles pagination automatically and will fetch all your link
 ```bash
 # Validate all destinations before starting
 ./target/release/dslf --validate
+
+# Check configuration file syntax without network requests
+./target/release/dslf --check
+
+# Check a custom configuration file
+./target/release/dslf --check --config custom-redirects.csv
 
 # Use a custom config file
 ./target/release/dslf --config custom-redirects.csv
@@ -183,8 +190,8 @@ This will:
   - Create and push tag: v0.2.0
   - Trigger CI/CD pipeline to build and publish release
 Continue? (y/N): y
-[INFO] ✅ Release v0.2.0 created successfully!
-[INFO] 🚀 CI/CD pipeline will now build and publish the release
+[INFO] Release v0.2.0 created successfully!
+[INFO] CI/CD pipeline will now build and publish the release
 ```
 
 **Manual release:**
@@ -331,6 +338,9 @@ docker run -p 8080:8080 -e DSLF_PORT=8080 -v ./my-redirects.csv:/redirects.csv v
 
 # Validate URLs before starting
 docker run --rm -v $(pwd)/redirects.csv:/redirects.csv vpetersson/dslf /dslf --validate
+
+# Check configuration file syntax without network requests
+docker run --rm -v $(pwd)/redirects.csv:/redirects.csv vpetersson/dslf /dslf --check
 ```
 
 > **Note**: Docker images are built for multiple platforms (`linux/amd64`, `linux/arm64`) so they'll run natively on both Intel/AMD and ARM-based systems (including Apple Silicon Macs) without platform warnings.
