@@ -1,6 +1,8 @@
 url,target,status
+# GitHub and development links
 /gh,https://github.com/yourusername,301
 /blog,https://yourblog.com,301
+# Marketing and promotional links
 /promo,https://yoursite.com/special-offer,302
 /docs,https://docs.yourproject.com,301
 /contact,https://yoursite.com/contact,301
