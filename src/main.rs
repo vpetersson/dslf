@@ -243,7 +243,9 @@ fn load_redirect_rules(
     file_path: &str,
 ) -> Result<HashMap<String, (String, u16)>, Box<dyn std::error::Error>> {
     let file = File::open(file_path)?;
-    let mut reader = csv::Reader::from_reader(file);
+    let mut reader = csv::ReaderBuilder::new()
+        .comment(Some(b'#'))
+        .from_reader(file);
     let mut rules = HashMap::new();
 
     for result in reader.deserialize() {
@@ -641,6 +643,48 @@ mod tests {
         let error = result.unwrap_err();
         assert!(error.to_string().contains("Invalid status code: 999"));
         assert!(error.to_string().contains("Must be 301 or 302"));
+    }
+
+    #[test]
+    fn test_load_redirect_rules_simple_comments() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(temp_file, "url,target,status").unwrap();
+        writeln!(temp_file, "# This is a comment").unwrap();
+        writeln!(temp_file, "/test,https://example.com,301").unwrap();
+        writeln!(temp_file, "# Another comment").unwrap();
+
+        let rules = load_redirect_rules(temp_file.path().to_str().unwrap()).unwrap();
+
+        assert_eq!(rules.len(), 1);
+        assert_eq!(
+            rules.get("/test"),
+            Some(&("https://example.com".to_string(), 301))
+        );
+    }
+
+    #[test]
+    fn test_load_redirect_rules_comments_only() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(temp_file, "url,target,status").unwrap();
+        writeln!(temp_file, "/test1,https://example.com,301").unwrap();
+        writeln!(temp_file, "/test2,https://example.com,302").unwrap();
+        writeln!(temp_file, "/test3,https://example.com,301").unwrap();
+
+        let rules = load_redirect_rules(temp_file.path().to_str().unwrap()).unwrap();
+
+        assert_eq!(rules.len(), 3);
+        assert_eq!(
+            rules.get("/test1"),
+            Some(&("https://example.com".to_string(), 301))
+        );
+        assert_eq!(
+            rules.get("/test2"),
+            Some(&("https://example.com".to_string(), 302))
+        );
+        assert_eq!(
+            rules.get("/test3"),
+            Some(&("https://example.com".to_string(), 301))
+        );
     }
 
     #[tokio::test]
