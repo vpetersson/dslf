@@ -1,8 +1,5 @@
-# Build stage
-FROM rust:1.88-slim AS builder
-
-# Create app directory
-WORKDIR /app
+FROM cgr.dev/chainguard/rust as build
+WORKDIR /work
 
 # Copy manifest files
 COPY Cargo.toml Cargo.lock ./
@@ -10,20 +7,13 @@ COPY Cargo.toml Cargo.lock ./
 # Copy source code
 COPY src ./src
 
-# Build release binary
 RUN cargo build --release
 
-# Runtime stage - use distroless for smallest secure image
-FROM gcr.io/distroless/cc-debian12
-
-# Copy the binary from builder stage
-COPY --from=builder /app/target/release/dslf /dslf
-
-# Copy the default config file
-COPY redirects.csv /redirects.csv
+FROM cgr.dev/chainguard/glibc-dynamic
+COPY --from=build --chown=nonroot:nonroot /work/target/release/dslf /usr/local/bin/dslf
 
 # Expose port
 EXPOSE 3000
 
 # Run the binary
-ENTRYPOINT ["/dslf"]
+ENTRYPOINT ["/usr/local/bin/dslf"]
