@@ -29,9 +29,11 @@ A blazing fast, self-hosted alternative to bit.ly and similar link shortening se
 1. Create a CSV file named `redirects.csv` with your short links:
    ```csv
    url,target,status
+
    # GitHub and development links
    /gh,https://github.com/yourusername,301
    /blog,https://yourblog.com,301
+
    # Marketing and promotional links
    /promo,https://yoursite.com/special-offer,302
    /docs,https://docs.yourproject.com,301
@@ -217,23 +219,34 @@ The CI/CD pipeline will automatically:
 - `target`: The full URL to redirect to (e.g., `https://github.com/yourusername`)
 - `status`: HTTP status code (301 for permanent, 302 for temporary/tracking)
 
-### Comments
+### Comments and Whitespace
 
-DSLF supports full-line comments in CSV files using `#`. This allows you to organize and document your redirects:
+DSLF supports both comments and whitespace lines for better organization:
+
+**Comments**: Full-line comments using `#`
+**Whitespace**: Empty lines or lines with only whitespace (spaces, tabs)
 
 ```csv
 url,target,status
+
 # GitHub and development links
 /gh,https://github.com/yourusername,301
 /blog,https://yourblog.com,301
+
 # Marketing and promotional links
 /promo,https://yoursite.com/special-offer,302
+
+# Documentation
 /docs,https://docs.yourproject.com,301
 ```
 
 - **Full-line comments**: Lines starting with `#` (after optional whitespace) are ignored
-- **Organizational**: Use comments to group related redirects or add notes
-- **Flexible placement**: Comments can appear anywhere between data rows
+- **Empty lines**: Completely blank lines are ignored
+- **Whitespace lines**: Lines containing only spaces or tabs are ignored
+- **Organizational**: Use comments and whitespace to group related redirects and improve readability
+- **Flexible placement**: Comments and whitespace can appear anywhere between data rows
+
+> **⚠️ Spreadsheet Warning**: Opening CSV files in spreadsheet applications (Excel, Google Sheets, etc.) will likely remove all comments and empty lines, losing the organizational structure. Edit the CSV file with a text editor to preserve these features.
 
 ### HTTP Redirect Codes
 
