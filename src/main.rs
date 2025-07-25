@@ -11,7 +11,6 @@ use clap::{Parser, Subcommand};
 use serde::Deserialize;
 use std::{
     collections::HashMap,
-    fs::File,
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 use tokio::net::TcpListener;
@@ -254,10 +253,18 @@ fn create_redirect_response(
 fn load_redirect_rules(
     file_path: &str,
 ) -> Result<HashMap<String, (String, u16)>, Box<dyn std::error::Error>> {
-    let file = File::open(file_path)?;
+    let file_content = std::fs::read_to_string(file_path)?;
+
+    // Filter out empty lines and lines with only whitespace
+    let filtered_content: String = file_content
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| format!("{}\n", line))
+        .collect();
+
     let mut reader = csv::ReaderBuilder::new()
         .comment(Some(b'#'))
-        .from_reader(file);
+        .from_reader(filtered_content.as_bytes());
     let mut rules = HashMap::new();
 
     for result in reader.deserialize() {
@@ -615,6 +622,68 @@ mod tests {
         // CSV library should handle whitespace in string fields
         assert_eq!(rules.len(), 1);
         assert!(rules.contains_key(" /test "));
+    }
+
+    #[test]
+    fn test_load_redirect_rules_with_empty_lines() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(temp_file, "url,target,status").unwrap();
+        writeln!(temp_file, "/first,https://example.com/first,301").unwrap();
+        writeln!(temp_file).unwrap(); // Empty line
+        writeln!(temp_file, "   ").unwrap(); // Line with only whitespace
+        writeln!(temp_file, "/second,https://example.com/second,302").unwrap();
+        writeln!(temp_file).unwrap(); // Another empty line
+        writeln!(temp_file, "	").unwrap(); // Line with only tab
+        writeln!(temp_file, "/third,https://example.com/third,301").unwrap();
+
+        let rules = load_redirect_rules(temp_file.path().to_str().unwrap()).unwrap();
+
+        // Should have exactly 3 rules, empty/whitespace lines should be ignored
+        assert_eq!(rules.len(), 3);
+        assert_eq!(
+            rules.get("/first"),
+            Some(&("https://example.com/first".to_string(), 301))
+        );
+        assert_eq!(
+            rules.get("/second"),
+            Some(&("https://example.com/second".to_string(), 302))
+        );
+        assert_eq!(
+            rules.get("/third"),
+            Some(&("https://example.com/third".to_string(), 301))
+        );
+    }
+
+    #[test]
+    fn test_load_redirect_rules_with_comments_and_empty_lines() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(temp_file, "url,target,status").unwrap();
+        writeln!(temp_file, "# GitHub and development links").unwrap();
+        writeln!(temp_file, "/gh,https://github.com/user,301").unwrap();
+        writeln!(temp_file).unwrap(); // Empty line
+        writeln!(temp_file, "# Marketing and promotional links").unwrap();
+        writeln!(temp_file, "   ").unwrap(); // Whitespace line
+        writeln!(temp_file, "/promo,https://site.com/promo,302").unwrap();
+        writeln!(temp_file).unwrap(); // Another empty line
+        writeln!(temp_file, "# Documentation").unwrap();
+        writeln!(temp_file, "/docs,https://docs.site.com,301").unwrap();
+
+        let rules = load_redirect_rules(temp_file.path().to_str().unwrap()).unwrap();
+
+        // Should have exactly 3 rules, comments and empty lines should be ignored
+        assert_eq!(rules.len(), 3);
+        assert_eq!(
+            rules.get("/gh"),
+            Some(&("https://github.com/user".to_string(), 301))
+        );
+        assert_eq!(
+            rules.get("/promo"),
+            Some(&("https://site.com/promo".to_string(), 302))
+        );
+        assert_eq!(
+            rules.get("/docs"),
+            Some(&("https://docs.site.com".to_string(), 301))
+        );
     }
 
     #[test]
