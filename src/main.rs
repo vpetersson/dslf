@@ -259,7 +259,7 @@ fn load_redirect_rules(
     let filtered_content: String = file_content
         .lines()
         .filter(|line| !line.trim().is_empty())
-        .map(|line| format!("{}\n", line))
+        .map(|line| format!("{line}\n"))
         .collect();
 
     let mut reader = csv::ReaderBuilder::new()
