@@ -68,3 +68,7 @@ config-local.csv
 
 /target
 imported-redirects.csv
+node_modules
+
+# Static build artifacts
+dist/

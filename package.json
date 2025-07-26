@@ -1,0 +1,24 @@
+{
+  "name": "dslf",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "bun run build:css && bun run build:html",
+    "build:css": "bunx tailwindcss -i ./src/styles.css -o ./dist/styles.css --minify",
+    "build:html": "bun run templates/404.ts",
+    "dev": "bunx tailwindcss -i ./src/styles.css -o ./dist/styles.css --watch"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.11",
+    "@types/bun": "latest",
+    "tailwindcss": "^4.1.11"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "fontawesome": "^5.6.3",
+    "tailwind": "^4.0.0"
+  }
+}
