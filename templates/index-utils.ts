@@ -167,7 +167,6 @@ export function generateIndexHtml(config: LinksConfig): string {
     "@type": config.profile.type === "organization" ? "Organization" : "Person",
     name: config.profile.name,
     description: config.profile.bio,
-    url: typeof window !== "undefined" ? window.location.href : "",
     ...(config.social && {
       sameAs: Object.values(config.social).filter(url => url?.trim())
     })
@@ -184,8 +183,7 @@ export function generateIndexHtml(config: LinksConfig): string {
     <meta name="title" content="${config.profile.name} | Links">
     <meta name="description" content="${config.profile.bio}">
     <meta name="author" content="${config.profile.name}">
-    <meta name="robots" content="index, follow">
-    <link rel="canonical" href="">
+        <meta name="robots" content="index, follow">
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
