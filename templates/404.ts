@@ -7,7 +7,39 @@ const html404 = `<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Primary Meta Tags -->
     <title>404 - Page Not Found | DSLF</title>
+    <meta name="title" content="404 - Page Not Found | DSLF">
+    <meta name="description" content="The page you're looking for could not be found. Return to the main page or explore other sections.">
+    <meta name="robots" content="noindex, nofollow">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="404 - Page Not Found | DSLF">
+    <meta property="og:description" content="The page you're looking for could not be found.">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary">
+    <meta property="twitter:title" content="404 - Page Not Found | DSLF">
+    <meta property="twitter:description" content="The page you're looking for could not be found.">
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      "name": "404 - Page Not Found",
+      "description": "Error page indicating the requested resource was not found",
+      "mainEntity": {
+        "@type": "Thing",
+        "name": "404 Error",
+        "description": "HTTP 404 Not Found error"
+      }
+    }
+    </script>
+
+    <!-- Stylesheets -->
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,36 +49,41 @@ const html404 = `<!DOCTYPE html>
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
-    <div class="glass-effect rounded-2xl p-8 md:p-12 max-w-2xl w-full text-center shadow-2xl">
-        <!-- Animated 404 -->
-        <div class="mb-8">
-            <h1 class="text-8xl md:text-9xl font-bold gradient-text animate-pulse">
+    <main class="glass-effect rounded-2xl p-8 md:p-12 max-w-2xl w-full text-center shadow-2xl" role="main">
+        <!-- Error Status -->
+        <header class="mb-8">
+            <h1 class="text-8xl md:text-9xl font-bold gradient-text animate-pulse" aria-label="Error 404">
                 404
             </h1>
-        </div>
+        </header>
 
         <!-- Error message -->
-        <div class="mb-8">
-            <h2 class="text-2xl md:text-3xl font-semibold text-white mb-4">
+        <section class="mb-8" aria-labelledby="error-heading">
+            <h2 id="error-heading" class="text-2xl md:text-3xl font-semibold text-white mb-4">
                 Oops! Page not found
             </h2>
             <p class="text-gray-300 text-lg mb-6">
                 The page you're looking for seems to have wandered off into the digital void.
                 Don't worry, even the best explorers sometimes take a wrong turn.
             </p>
-        </div>
+        </section>
 
         <!-- Decorative elements -->
-        <div class="mb-8 flex justify-center space-x-4">
+        <div class="mb-8 flex justify-center space-x-4" role="presentation" aria-hidden="true">
             <div class="w-3 h-3 bg-blue-400 rounded-full animate-bounce"></div>
             <div class="w-3 h-3 bg-purple-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
             <div class="w-3 h-3 bg-pink-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
         </div>
 
+        <!-- Navigation -->
+        <nav role="navigation" aria-label="Error page navigation">
+            <a href="/" class="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-300 font-medium">
+                <i class="fas fa-home" aria-hidden="true"></i>
+                <span>Return Home</span>
+            </a>
+        </nav>
 
-
-
-    </div>
+    </main>
 
     <!-- Floating particles animation -->
     <div class="fixed inset-0 pointer-events-none overflow-hidden">
@@ -79,19 +116,19 @@ const html404 = `<!DOCTYPE html>
 </html>`;
 
 async function generateStaticFiles() {
-    try {
-        // Create dist directory if it doesn't exist
-        await mkdir("dist", { recursive: true });
+  try {
+    // Create dist directory if it doesn't exist
+    await mkdir("dist", { recursive: true });
 
-        // Write the 404.html file
-        await writeFile("dist/404.html", html404);
+    // Write the 404.html file
+    await writeFile("dist/404.html", html404);
 
-        console.log("✅ Generated dist/404.html successfully!");
-    } catch (error) {
-        console.error("❌ Error generating static files:", error);
-        process.exit(1);
-    }
+    console.log("✅ Generated dist/404.html successfully!");
+  } catch (error) {
+    console.error("❌ Error generating static files:", error);
+    process.exit(1);
+  }
 }
 
 // Run the generator
-generateStaticFiles();
+void generateStaticFiles();

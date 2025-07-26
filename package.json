@@ -6,19 +6,37 @@
   "scripts": {
     "build": "bun run build:css && bun run build:html",
     "build:css": "bunx tailwindcss -i ./src/styles.css -o ./dist/styles.css --minify",
-    "build:html": "bun run templates/404.ts",
-    "dev": "bunx tailwindcss -i ./src/styles.css -o ./dist/styles.css --watch"
+    "build:html": "bun run templates/index.ts && bun run templates/404.ts",
+    "dev": "bunx tailwindcss -i ./src/styles.css -o ./dist/styles.css --watch",
+    "test": "bun test tests/link-index.test.ts",
+    "test:coverage": "bun test --coverage tests/link-index.test.ts",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "lint:check": "eslint . --ext .ts,.tsx --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "quality": "bun run lint:check && bun run format:check && bun run test"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.11",
     "@types/bun": "latest",
+    "@typescript-eslint/eslint-plugin": "^8.38.0",
+    "@typescript-eslint/parser": "^8.38.0",
+    "eslint": "^9.32.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^7.2.1",
+    "prettier": "^3.6.2",
     "tailwindcss": "^4.1.11"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
+    "@types/js-yaml": "^4.0.9",
     "fontawesome": "^5.6.3",
+    "js-yaml": "^4.1.0",
     "tailwind": "^4.0.0"
   }
 }

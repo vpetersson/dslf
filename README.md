@@ -27,6 +27,7 @@ A blazing fast, self-hosted alternative to bit.ly and similar link shortening se
 ## Usage
 
 1. Create a CSV file named `redirects.csv` with your short links:
+
    ```csv
    url,target,status
 
@@ -40,6 +41,7 @@ A blazing fast, self-hosted alternative to bit.ly and similar link shortening se
    ```
 
 2. Run the service:
+
    ```bash
    cargo run --release
    # or use the binary directly
@@ -83,9 +85,11 @@ REBRANDLY_TOKEN=your_api_key_here dslf import rebrandly
 ```
 
 **Supported providers:**
+
 - **Rebrandly**: Imports all active links from your Rebrandly account
 
 **Environment Variables:**
+
 - `REBRANDLY_API_KEY` or `REBRANDLY_TOKEN`: Your Rebrandly API key
 
 The import command handles pagination automatically and will fetch all your links regardless of quantity. Links are converted to the DSLF format with permanent redirects (301) by default.
@@ -318,15 +322,15 @@ spec:
         app: dslf
     spec:
       containers:
-      - name: dslf
-        image: your-registry/dslf:v1.0
-        ports:
-        - containerPort: 3000
-        env:
-        - name: DSLF_BIND_ADDR
-          value: "0.0.0.0"
-        - name: DSLF_PORT
-          value: "3000"
+        - name: dslf
+          image: your-registry/dslf:v1.0
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DSLF_BIND_ADDR
+              value: "0.0.0.0"
+            - name: DSLF_PORT
+              value: "3000"
 ```
 
 ### Docker Deployment
@@ -404,10 +408,10 @@ docker push yourregistry/my-link-shortener:v1.0
 **Docker Compose:**
 
 ```yaml
-version: '3.8'
+version: "3.8"
 services:
   dslf:
-    image: vpetersson/dslf:latest  # or ghcr.io/mvip/dslf:latest
+    image: vpetersson/dslf:latest # or ghcr.io/mvip/dslf:latest
     ports:
       - "3000:3000"
     volumes:

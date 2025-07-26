@@ -11,6 +11,8 @@ RUN bun install
 COPY src ./src
 COPY templates ./templates
 COPY tailwind.config.js ./
+# Copy link-index.yaml if it exists (for Link Index page generation)
+COPY link-index.yaml* ./
 
 # Build static assets
 RUN bun run build
