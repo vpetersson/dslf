@@ -1,0 +1,44 @@
+# Link Index Configuration (link-index.yaml)
+# Configure your social media and custom links here
+# Works for both individuals and companies/organizations
+
+# Profile information
+profile:
+  name: "Test Profile"
+  bio: "Testing empty value filtering"
+  type: "person" # "person" or "organization" - affects SEO structured data
+  background: "" # Empty - should be ignored
+
+# Footer settings
+footer:
+  show_powered_by: true # Set to false to hide the "Powered by DSLF" footer
+
+# Social media links - testing empty values
+social:
+  # These should be included
+  linkedin: "https://linkedin.com/in/test"
+  github: "https://github.com/test"
+
+  # These should be ignored (empty)
+  twitter: ""
+  instagram: ""
+  facebook: ""
+  email: "mailto:test@example.com"
+
+  # These should be ignored (empty)
+  discord: ""
+  telegram: ""
+  youtube: ""
+
+# Custom links - testing empty values
+links:
+  # These should be included
+  "Portfolio": "https://portfolio.test"
+  "Blog": "https://blog.test"
+
+  # These should be ignored (empty)
+  "Empty Link 1": ""
+  "Empty Link 2": ""
+
+  # This should be included
+  "Contact": "https://contact.test"

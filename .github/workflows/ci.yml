@@ -2,10 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
-    tags: [ 'v*' ]
+    branches: [master]
+    tags: ["v*"]
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 env:
   CARGO_TERM_COLOR: always
@@ -16,55 +16,75 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Install Rust toolchain
-      run: |
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Install Rust toolchain
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
-    - name: Show Rust version
-      run: |
-        rustc --version
-        cargo --version
+      - name: Show Rust version
+        run: |
+          rustc --version
+          cargo --version
 
-    - name: Cache Rust dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-          target/
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-cargo-
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
-    - name: Check code formatting
-      run: cargo fmt --all -- --check
+      - name: Check code formatting
+        run: cargo fmt --all -- --check
 
-    - name: Run clippy lints
-      run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Run clippy lints
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
-    - name: Run tests
-      run: cargo test --verbose
+      - name: Run tests
+        run: cargo test --verbose
 
-    - name: Build release binary
-      run: cargo build --release --verbose
+      - name: Build release binary
+        run: cargo build --release --verbose
 
-    - name: Test binary execution
-      run: |
-        ./target/release/dslf --help
-        echo "Binary execution test passed"
+      - name: Test binary execution
+        run: |
+          ./target/release/dslf --help
+          echo "Binary execution test passed"
 
-    - name: Test configuration validation
-      run: |
-        # Create a test config with a reliable URL for CI validation
-        echo "url,target,status" > test-ci.csv
-        echo "/github,https://github.com,301" >> test-ci.csv
-        ./target/release/dslf --validate --config test-ci.csv || echo "Validation completed (may fail in CI environment)"
-        rm test-ci.csv
+      - name: Test configuration validation
+        run: |
+          # Create a test config with a reliable URL for CI validation
+          echo "url,target,status" > test-ci.csv
+          echo "/github,https://github.com,301" >> test-ci.csv
+          ./target/release/dslf --validate --config test-ci.csv || echo "Validation completed (may fail in CI environment)"
+          rm test-ci.csv
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install frontend dependencies
+        run: bun install
+
+      - name: Run TypeScript linting
+        run: bun run lint:check
+
+      - name: Run TypeScript formatting check
+        run: bun run format:check
+
+      - name: Run TypeScript tests
+        run: bun run test
+
+      - name: Build frontend assets
+        run: bun run build
 
   docker:
     name: Docker Build and Push
@@ -75,59 +95,59 @@ jobs:
       contents: read
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Prepare Docker tags
-      id: meta
-      run: |
-        # Sanitize ref name for Docker tags (replace / with -)
-        CLEAN_REF=$(echo "${{ github.ref_name }}" | sed 's/\//-/g')
-        echo "clean_ref=${CLEAN_REF}" >> $GITHUB_OUTPUT
+      - name: Prepare Docker tags
+        id: meta
+        run: |
+          # Sanitize ref name for Docker tags (replace / with -)
+          CLEAN_REF=$(echo "${{ github.ref_name }}" | sed 's/\//-/g')
+          echo "clean_ref=${CLEAN_REF}" >> $GITHUB_OUTPUT
 
-        # Determine if this should be 'latest' tag
-        if [[ "${{ github.ref_name }}" == "master" ]]; then
-          echo "version_tag=latest" >> $GITHUB_OUTPUT
-        else
-          echo "version_tag=${CLEAN_REF}" >> $GITHUB_OUTPUT
-        fi
+          # Determine if this should be 'latest' tag
+          if [[ "${{ github.ref_name }}" == "master" ]]; then
+            echo "version_tag=latest" >> $GITHUB_OUTPUT
+          else
+            echo "version_tag=${CLEAN_REF}" >> $GITHUB_OUTPUT
+          fi
 
-    - name: Log in to GitHub Container Registry
-      if: github.event_name == 'push'
-      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Log in to GitHub Container Registry
+        if: github.event_name == 'push'
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-    - name: Login to Docker Hub
-      if: github.event_name == 'push'
-      uses: docker/login-action@v3
-      with:
-        username: vpetersson
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Login to Docker Hub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: vpetersson
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Build and conditionally push Docker images
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        # Multi-platform for push, single platform for testing
-        platforms: ${{ github.event_name == 'push' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
-        push: ${{ github.event_name == 'push' }}
-        load: ${{ github.event_name != 'push' }}
-        # Enable Docker layer caching for faster builds
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-        tags: |
-          vpetersson/dslf:${{ steps.meta.outputs.version_tag }}
-          ghcr.io/${{ github.repository_owner }}/dslf:${{ steps.meta.outputs.version_tag }}
-          vpetersson/dslf:${{ github.sha }}
-          ghcr.io/${{ github.repository_owner }}/dslf:${{ github.sha }}
+      - name: Build and conditionally push Docker images
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          # Multi-platform for push, single platform for testing
+          platforms: ${{ github.event_name == 'push' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
+          push: ${{ github.event_name == 'push' }}
+          load: ${{ github.event_name != 'push' }}
+          # Enable Docker layer caching for faster builds
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            vpetersson/dslf:${{ steps.meta.outputs.version_tag }}
+            ghcr.io/${{ github.repository_owner }}/dslf:${{ steps.meta.outputs.version_tag }}
+            vpetersson/dslf:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/dslf:${{ github.sha }}
 
-    - name: Test Docker container
-      if: github.event_name != 'push'
-      run: |
-        docker run --rm vpetersson/dslf:${{ github.sha }} --help
-        echo "Docker container test passed"
+      - name: Test Docker container
+        if: github.event_name != 'push'
+        run: |
+          docker run --rm vpetersson/dslf:${{ github.sha }} --help
+          echo "Docker container test passed"
 
   release:
     name: Create Release
@@ -143,101 +163,101 @@ jobs:
           - x86_64-pc-windows-gnu
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Install Rust toolchain
-      run: |
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-        rustup target add ${{ matrix.target }}
+      - name: Install Rust toolchain
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          rustup target add ${{ matrix.target }}
 
-    - name: Cache Rust dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-          target/
-        key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-cargo-${{ matrix.target }}-
-          ${{ runner.os }}-cargo-
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ matrix.target }}-
+            ${{ runner.os }}-cargo-
 
-    - name: Install cross-compilation dependencies
-      run: |
-        case ${{ matrix.target }} in
-          x86_64-unknown-linux-musl)
-            sudo apt-get update && sudo apt-get install -y musl-tools
-            ;;
-          x86_64-pc-windows-gnu)
-            sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64
-            ;;
-        esac
+      - name: Install cross-compilation dependencies
+        run: |
+          case ${{ matrix.target }} in
+            x86_64-unknown-linux-musl)
+              sudo apt-get update && sudo apt-get install -y musl-tools
+              ;;
+            x86_64-pc-windows-gnu)
+              sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64
+              ;;
+          esac
 
-    - name: Build release binary
-      run: |
-        case ${{ matrix.target }} in
-          x86_64-unknown-linux-musl)
-            export RUSTFLAGS="-C target-feature=+crt-static"
-            ;;
-        esac
-        cargo build --release --target ${{ matrix.target }} --verbose
+      - name: Build release binary
+        run: |
+          case ${{ matrix.target }} in
+            x86_64-unknown-linux-musl)
+              export RUSTFLAGS="-C target-feature=+crt-static"
+              ;;
+          esac
+          cargo build --release --target ${{ matrix.target }} --verbose
 
-    - name: Package binary
-      run: |
-        cd target/${{ matrix.target }}/release
-        if [[ "${{ matrix.target }}" == *"windows"* ]]; then
-          BINARY_NAME="dslf.exe"
-        else
-          BINARY_NAME="dslf"
-        fi
+      - name: Package binary
+        run: |
+          cd target/${{ matrix.target }}/release
+          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+            BINARY_NAME="dslf.exe"
+          else
+            BINARY_NAME="dslf"
+          fi
 
-        ARCHIVE_NAME="dslf-${{ github.ref_name }}-${{ matrix.target }}"
+          ARCHIVE_NAME="dslf-${{ github.ref_name }}-${{ matrix.target }}"
 
-        if [[ "${{ matrix.target }}" == *"windows"* ]]; then
-          zip "${ARCHIVE_NAME}.zip" "$BINARY_NAME"
-          echo "ARCHIVE_FILE=${ARCHIVE_NAME}.zip" >> $GITHUB_ENV
-        else
-          tar -czf "${ARCHIVE_NAME}.tar.gz" "$BINARY_NAME"
-          echo "ARCHIVE_FILE=${ARCHIVE_NAME}.tar.gz" >> $GITHUB_ENV
-        fi
+          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+            zip "${ARCHIVE_NAME}.zip" "$BINARY_NAME"
+            echo "ARCHIVE_FILE=${ARCHIVE_NAME}.zip" >> $GITHUB_ENV
+          else
+            tar -czf "${ARCHIVE_NAME}.tar.gz" "$BINARY_NAME"
+            echo "ARCHIVE_FILE=${ARCHIVE_NAME}.tar.gz" >> $GITHUB_ENV
+          fi
 
-        echo "ARCHIVE_PATH=target/${{ matrix.target }}/release/${ARCHIVE_FILE}" >> $GITHUB_ENV
+          echo "ARCHIVE_PATH=target/${{ matrix.target }}/release/${ARCHIVE_FILE}" >> $GITHUB_ENV
 
-    - name: Create Release
-      run: |
-        # Only create release on first job
-        if [[ "${{ matrix.target }}" == "x86_64-unknown-linux-gnu" ]]; then
-          # Create release
+      - name: Create Release
+        run: |
+          # Only create release on first job
+          if [[ "${{ matrix.target }}" == "x86_64-unknown-linux-gnu" ]]; then
+            # Create release
+            curl -X POST \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              https://api.github.com/repos/${{ github.repository }}/releases \
+              -d '{
+                "tag_name": "${{ github.ref_name }}",
+                "name": "Release ${{ github.ref_name }}",
+                "body": "## DSLF Release ${{ github.ref_name }}\n\nA blazing fast, self-hosted alternative to bit.ly and similar link shortening services.\n\n### Downloads\n\nDownload the appropriate binary for your platform below.\n\n### Docker\n\n```bash\ndocker run -p 3000:3000 ghcr.io/${{ github.repository }}:${{ github.ref_name }}\n```",
+                "draft": false,
+                "prerelease": false
+              }' || echo "Release may already exist"
+          fi
+
+      - name: Upload Release Asset
+        run: |
+          # Get release ID
+          RELEASE_ID=$(curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ github.ref_name }} \
+            | grep '"id":' | head -1 | sed 's/.*"id": *\([0-9]*\).*/\1/')
+
+          # Upload asset
           curl -X POST \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            https://api.github.com/repos/${{ github.repository }}/releases \
-            -d '{
-              "tag_name": "${{ github.ref_name }}",
-              "name": "Release ${{ github.ref_name }}",
-              "body": "## DSLF Release ${{ github.ref_name }}\n\nA blazing fast, self-hosted alternative to bit.ly and similar link shortening services.\n\n### Downloads\n\nDownload the appropriate binary for your platform below.\n\n### Docker\n\n```bash\ndocker run -p 3000:3000 ghcr.io/${{ github.repository }}:${{ github.ref_name }}\n```",
-              "draft": false,
-              "prerelease": false
-            }' || echo "Release may already exist"
-        fi
-
-    - name: Upload Release Asset
-      run: |
-        # Get release ID
-        RELEASE_ID=$(curl -s \
-          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ github.ref_name }} \
-          | grep '"id":' | head -1 | sed 's/.*"id": *\([0-9]*\).*/\1/')
-
-        # Upload asset
-        curl -X POST \
-          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          -H "Content-Type: application/octet-stream" \
-          --data-binary @"${{ env.ARCHIVE_PATH }}" \
-          "https://uploads.github.com/repos/${{ github.repository }}/releases/${RELEASE_ID}/assets?name=${{ env.ARCHIVE_FILE }}"
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @"${{ env.ARCHIVE_PATH }}" \
+            "https://uploads.github.com/repos/${{ github.repository }}/releases/${RELEASE_ID}/assets?name=${{ env.ARCHIVE_FILE }}"
 
   release-macos:
     name: Create Release (macOS)
@@ -252,51 +272,51 @@ jobs:
           - aarch64-apple-darwin
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Install Rust toolchain
-      run: |
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-        rustup target add ${{ matrix.target }}
+      - name: Install Rust toolchain
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          rustup target add ${{ matrix.target }}
 
-    - name: Cache Rust dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-          target/
-        key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-cargo-${{ matrix.target }}-
-          ${{ runner.os }}-cargo-
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ matrix.target }}-
+            ${{ runner.os }}-cargo-
 
-    - name: Build release binary
-      run: cargo build --release --target ${{ matrix.target }} --verbose
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }} --verbose
 
-    - name: Package binary
-      run: |
-        cd target/${{ matrix.target }}/release
-        BINARY_NAME="dslf"
-        ARCHIVE_NAME="dslf-${{ github.ref_name }}-${{ matrix.target }}"
-        tar -czf "${ARCHIVE_NAME}.tar.gz" "$BINARY_NAME"
-        echo "ARCHIVE_FILE=${ARCHIVE_NAME}.tar.gz" >> $GITHUB_ENV
-        echo "ARCHIVE_PATH=target/${{ matrix.target }}/release/${ARCHIVE_FILE}" >> $GITHUB_ENV
+      - name: Package binary
+        run: |
+          cd target/${{ matrix.target }}/release
+          BINARY_NAME="dslf"
+          ARCHIVE_NAME="dslf-${{ github.ref_name }}-${{ matrix.target }}"
+          tar -czf "${ARCHIVE_NAME}.tar.gz" "$BINARY_NAME"
+          echo "ARCHIVE_FILE=${ARCHIVE_NAME}.tar.gz" >> $GITHUB_ENV
+          echo "ARCHIVE_PATH=target/${{ matrix.target }}/release/${ARCHIVE_FILE}" >> $GITHUB_ENV
 
-    - name: Upload Release Asset
-      run: |
-        # Get release ID
-        RELEASE_ID=$(curl -s \
-          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ github.ref_name }} \
-          | grep '"id":' | head -1 | sed 's/.*"id": *\([0-9]*\).*/\1/')
+      - name: Upload Release Asset
+        run: |
+          # Get release ID
+          RELEASE_ID=$(curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ github.ref_name }} \
+            | grep '"id":' | head -1 | sed 's/.*"id": *\([0-9]*\).*/\1/')
 
-        # Upload asset
-        curl -X POST \
-          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          -H "Content-Type: application/octet-stream" \
-          --data-binary @"${{ env.ARCHIVE_PATH }}" \
-          "https://uploads.github.com/repos/${{ github.repository }}/releases/${RELEASE_ID}/assets?name=${{ env.ARCHIVE_FILE }}"
+          # Upload asset
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @"${{ env.ARCHIVE_PATH }}" \
+            "https://uploads.github.com/repos/${{ github.repository }}/releases/${RELEASE_ID}/assets?name=${{ env.ARCHIVE_FILE }}"
