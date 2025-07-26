@@ -18,11 +18,14 @@ A blazing fast, self-hosted alternative to bit.ly and similar link shortening se
 - **Minimal codebase**: Single binary with minimal dependencies
 - **Fast**: Built with Axum web framework for high performance
 - **Simple configuration**: CSV-based redirect rules
+- **Link Index Page**: Beautiful LinkTree-style landing page for your links
 - **HTTP compliant**: Supports both classic (301/302) and modern (307/308) redirect codes
 - **Flexible routing**: Handles trailing slashes automatically
 - **Well tested**: 70%+ test coverage with comprehensive error handling
 - **URL validation**: Optional destination URL validation before deployment
 - **Import capability**: Import links from external providers (Rebrandly supported)
+- **SEO Optimized**: Rich meta tags, Open Graph, and structured data
+- **Accessibility**: WCAG compliant with semantic HTML and ARIA labels
 
 ## Usage
 
@@ -54,6 +57,81 @@ A blazing fast, self-hosted alternative to bit.ly and similar link shortening se
    - `http://yourdomain.com/gh` → `https://github.com/yourusername`
    - `http://yourdomain.com/blog` → `https://yourblog.com`
    - `http://yourdomain.com/promo` → `https://yoursite.com/special-offer`
+
+## Link Index Page
+
+Create a beautiful LinkTree-style landing page at `/` (index.html) to showcase your social media links and important links. Simply create a `link-index.yaml` file in your project root:
+
+```yaml
+# Profile information
+profile:
+  name: "Your Name"
+  bio: "Software Developer | Tech Enthusiast | Open Source Contributor"
+  type: "person" # "person" or "organization" - affects SEO structured data
+  # background: "https://example.com/bg.jpg"  # Optional background image
+
+# Social media links - supported platforms with FontAwesome icons
+social:
+  linkedin: "https://linkedin.com/in/yourusername"
+  github: "https://github.com/yourusername"
+  twitter: "https://twitter.com/yourusername"
+  website: "https://yourwebsite.com"
+  email: "mailto:your.email@example.com"
+  instagram: "https://instagram.com/yourusername"
+  youtube: "https://youtube.com/@yourusername"
+
+# Custom links - any additional links you want to showcase
+links:
+  "My Portfolio": "https://yourportfolio.com"
+  "Latest Blog Post": "https://yourblog.com/latest"
+  "Join My Newsletter": "https://newsletter.example.com"
+  "Buy Me a Coffee": "https://buymeacoffee.com/yourusername"
+
+# Footer settings
+footer:
+  show_powered_by: true # Set to false to hide the "Built with DSLF" footer
+```
+
+### Supported Social Platforms
+
+The link index page includes FontAwesome icons for these platforms:
+
+- **Professional**: LinkedIn, GitHub, GitLab, Stack Overflow, CodePen
+- **Social**: Twitter, Instagram, Facebook, YouTube, TikTok
+- **Communication**: Email, Discord, Telegram, Slack
+- **Content**: Medium, Dev.to, Hashnode, Behance, Dribbble
+- **Business**: Website, Calendly
+
+### Link Index Features
+
+- **🎨 Beautiful Design**: Modern gradient background with glassmorphism effects
+- **📱 Mobile Responsive**: Perfect on all screen sizes
+- **⚡ Lightning Fast**: Generated at build time, served as static HTML
+- **🔍 SEO Optimized**: Rich meta tags, Open Graph, Twitter Cards, and JSON-LD structured data
+- **♿ Accessibility**: WCAG compliant with semantic HTML, ARIA labels, and screen reader support
+- **🎭 Conditional Generation**: Only generated if `link-index.yaml` exists
+- **🎯 Empty Value Handling**: Automatically ignores empty social media links
+- **🏢 Company Support**: Supports both personal profiles and organizations
+
+### SEO & Social Media
+
+The link index page is fully optimized for search engines and social sharing:
+
+- **Structured Data**: JSON-LD with Person/Organization schema for rich search results
+- **Open Graph**: Rich previews on Facebook, LinkedIn, and other platforms
+- **Twitter Cards**: Enhanced Twitter sharing with proper meta tags
+- **Semantic HTML**: Proper heading structure, navigation landmarks, and content sections
+- **Meta Tags**: Complete title, description, and author information
+
+### Docker with Link Index
+
+```bash
+# Include link index in your Docker deployment
+docker run -p 3000:3000 \
+  -v $(pwd)/redirects.csv:/app/redirects.csv \
+  -v $(pwd)/link-index.yaml:/app/link-index.yaml \
+  ghcr.io/vpetersson/dslf:latest
+```
 
 ## Command Line Options
 
@@ -447,18 +525,62 @@ server {
 
 ## Development
 
-### Testing
+### Prerequisites
 
-Run the test suite:
+- **Rust** (latest stable version)
+- **Cargo** (comes with Rust)
+- **Bun** (for frontend assets and testing)
+
+### Building from Source
 
 ```bash
+git clone https://github.com/vpetersson/dslf.git
+cd dslf
+
+# Install frontend dependencies
+bun install
+
+# Build frontend assets
+bun run build
+
+# Build Rust binary
+cargo build --release
+```
+
+### Testing
+
+Run the complete test suite:
+
+```bash
+# Rust backend tests
 cargo test
+
+# TypeScript frontend tests (29 tests covering link index functionality)
+bun run test
+
+# Run all quality checks (linting, formatting, testing)
+bun run quality
 ```
 
 Generate coverage report:
 
 ```bash
 cargo tarpaulin --out Html --output-dir coverage
+```
+
+### Development Workflow
+
+```bash
+# Frontend development with hot reload
+bun run dev
+
+# Build all assets
+bun run build
+
+# Code quality checks
+bun run lint        # TypeScript linting (ESLint)
+bun run format      # Code formatting (Prettier)
+bun run lint:fix    # Auto-fix linting issues
 ```
 
 ### Release Management
