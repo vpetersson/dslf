@@ -165,8 +165,8 @@ fn create_app(
 
         // ServeDir handles index.html for directories and falls back to redirects
         // The not_found_service is called when neither static file nor redirect matches
-        Router::new().fallback_service(
-            serve_dir.not_found_service(service_fn(move |_req: Request<Body>| {
+        Router::new().fallback_service(serve_dir.not_found_service(service_fn(
+            move |_req: Request<Body>| {
                 let path = not_found_path.clone();
                 async move {
                     if let Ok(content) = tokio::fs::read_to_string(&path).await {
@@ -180,8 +180,8 @@ fn create_app(
                         Ok((StatusCode::NOT_FOUND, "Not Found").into_response())
                     }
                 }
-            })),
-        )
+            },
+        )))
     } else {
         // No static directory, only serve redirects
         Router::new()
