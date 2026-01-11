@@ -115,10 +115,10 @@ pub async fn import_from_rebrandly(output_file: &str) -> Result<(), Box<dyn Erro
 
     for link in all_links {
         // Skip inactive links
-        if let Some(status) = &link.status {
-            if status != "active" {
-                continue;
-            }
+        if let Some(status) = &link.status
+            && status != "active"
+        {
+            continue;
         }
 
         // Create the short URL path
