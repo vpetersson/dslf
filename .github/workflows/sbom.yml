@@ -1,0 +1,23 @@
+name: Upload SBOM
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  upload-sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Upload SBOM
+        uses: sbomify/github-action@master
+        env:
+          TOKEN: ${{ secrets.SBOMIFY_TOKEN }}
+          COMPONENT_ID: 'Tp1KWwHmzC1i'
+          COMPONENT_NAME: 'Damn Small Link Forwarder'
+          COMPONENT_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || format('{0}-{1}', github.ref_name, github.sha) }}
+          LOCK_FILE: 'Cargo.lock'
+          AUGMENT: true
+          ENRICH: true
+          OUTPUT_FILE: sbom.cdx.json
