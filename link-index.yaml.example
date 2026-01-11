@@ -1,0 +1,42 @@
+# Link Index Configuration
+# Theme options: mocha (dark), macchiato, frappe, latte (light)
+# Colors from Catppuccin palette: https://catppuccin.com/
+
+profile:
+  name: "Test Profile"
+  bio: "Testing the Link Index page with Catppuccin theming"
+  type: "person"
+  # avatar: "https://example.com/avatar.jpg"
+
+# Theme configuration - uses Catppuccin color palette
+theme:
+  preset: "mocha" # mocha | macchiato | frappe | latte
+  buttonStyle: "glass" # glass | solid | outline
+
+# Footer settings
+footer:
+  show_powered_by: true
+
+# Social media links
+social:
+  linkedin: "https://linkedin.com/in/test"
+  github: "https://github.com/test"
+  email: "mailto:test@example.com"
+  # twitter: ""
+  # instagram: ""
+
+# Custom links
+links:
+  - title: "Portfolio"
+    url: "https://portfolio.test"
+    icon: "fas fa-briefcase"
+    description: "Check out my work"
+
+  - title: "Blog"
+    url: "https://blog.test"
+    icon: "fas fa-blog"
+
+  - title: "Contact"
+    url: "https://contact.test"
+    icon: "fas fa-envelope"
+    highlight: true

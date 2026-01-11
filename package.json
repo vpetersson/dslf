@@ -4,10 +4,11 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "bun run build:css && bun run build:html",
-    "build:css": "bunx tailwindcss -i ./src/styles.css -o ./dist/styles.css --minify",
+    "build": "bun run build:assets && bun run build:css && bun run build:html",
+    "build:assets": "mkdir -p dist/css dist/webfonts dist/fonts && cp node_modules/@fortawesome/fontawesome-free/css/all.min.css dist/css/fontawesome.min.css && cp -r node_modules/@fortawesome/fontawesome-free/webfonts/* dist/webfonts/ && cat node_modules/@fontsource/inter/400.css node_modules/@fontsource/inter/500.css node_modules/@fontsource/inter/600.css node_modules/@fontsource/inter/700.css | sed 's|\\./files/|../fonts/|g' > dist/css/inter.css && cp -r node_modules/@fontsource/inter/files/* dist/fonts/",
+    "build:css": "bun x tailwindcss -i ./src/styles.css -o ./dist/styles.css --minify",
     "build:html": "bun run templates/index.ts && bun run templates/404.ts",
-    "dev": "bunx tailwindcss -i ./src/styles.css -o ./dist/styles.css --watch",
+    "dev": "bun x tailwindcss -i ./src/styles.css -o ./dist/styles.css --watch",
     "test": "bun test tests/link-index.test.ts",
     "test:coverage": "bun test --coverage tests/link-index.test.ts",
     "lint": "eslint . --ext .ts,.tsx",
@@ -20,6 +21,7 @@
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.11",
     "@types/bun": "latest",
+    "@types/js-yaml": "^4.0.9",
     "@typescript-eslint/eslint-plugin": "^8.38.0",
     "@typescript-eslint/parser": "^8.38.0",
     "eslint": "^9.32.0",
@@ -34,9 +36,9 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "@types/js-yaml": "^4.0.9",
-    "fontawesome": "^5.6.3",
+    "@fontsource/inter": "^5.2.8",
+    "@fortawesome/fontawesome-free": "^7.1.0",
     "js-yaml": "^4.1.0",
-    "tailwind": "^4.0.0"
+    "zod": "^4.3.5"
   }
 }

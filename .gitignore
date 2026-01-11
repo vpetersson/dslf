@@ -64,6 +64,10 @@ test-*.csv
 local.csv
 config-local.csv
 
+# User configuration files (copy from .example files to customize)
+redirects.csv
+link-index.yaml
+
 # Added by cargo
 
 /target

@@ -1,390 +1,187 @@
 # DSLF - Damn Small Link Forwarder
 
 [![sbomified](https://sbomify.com/assets/images/logo/badge.svg)](https://app.sbomify.com/public/component/Tp1KWwHmzC1i)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-A blazing fast, self-hosted alternative to bit.ly and similar link shortening services. Built with Rust for maximum performance and minimal resource usage.
+A blazing fast, self-hosted link shortener and LinkTree-style page builder. Built with Rust for maximum performance and minimal resource usage.
 
-## Why DSLF?
+**Why DSLF?** Replace bit.ly, TinyURL, and Linktree with a single, self-hosted service that's fast, private, and simple to configure.
 
-**Replace bit.ly, TinyURL, and other link shorteners with your own service:**
+## Table of Contents
 
-- **Self-hosted**: Full control over your links and data
-- **Blazing fast**: Sub-millisecond response times
-- **Privacy-focused**: No tracking, no analytics unless you want them
-- **Tiny footprint**: Single 5MB binary, minimal memory usage
-- **Simple config**: Just a CSV file - no database required
-- **Reliable**: No third-party dependencies for core functionality
+- [Quick Start](#quick-start)
+- [Features](#features)
+- [Configuration](#configuration)
+  - [Redirects (redirects.csv)](#redirects-redirectscsv)
+  - [LinkTree Page (link-index.yaml)](#linktree-page-link-indexyaml)
+- [Deployment](#deployment)
+  - [Docker](#docker)
+  - [Docker Compose](#docker-compose)
+  - [Kubernetes](#kubernetes)
+  - [PaaS (Fly.io, Railway, Render)](#paas-flyio-railway-render)
+- [CLI Reference](#cli-reference)
+- [Development](#development)
+- [License](#license)
+
+## Quick Start
+
+### Option 1: Fork & Deploy (Recommended)
+
+1. **Fork this repository**
+2. **Copy and customize configuration:**
+
+   ```bash
+   cp redirects.csv.example redirects.csv      # Required: your short links
+   cp link-index.yaml.example link-index.yaml  # Optional: LinkTree page
+   ```
+
+3. **Deploy:**
+
+   ```bash
+   docker build -t my-links .
+   docker run -p 3000:3000 my-links
+   ```
+
+> Your config files are gitignored—personal links stay private and won't conflict with upstream updates.
+
+### Option 2: Use Pre-built Image
+
+```bash
+docker run -p 3000:3000 \
+  -v $(pwd)/redirects.csv:/app/redirects.csv \
+  vpetersson/dslf:latest
+```
 
 ## Features
 
-- **Minimal codebase**: Single binary with minimal dependencies
-- **Fast**: Built with Axum web framework for high performance
-- **Simple configuration**: CSV-based redirect rules
-- **Link Index Page**: Beautiful LinkTree-style landing page for your links
-- **HTTP compliant**: Supports both classic (301/302) and modern (307/308) redirect codes
-- **Flexible routing**: Handles trailing slashes automatically
-- **Well tested**: 70%+ test coverage with comprehensive error handling
-- **URL validation**: Optional destination URL validation before deployment
-- **Import capability**: Import links from external providers (Rebrandly supported)
-- **SEO Optimized**: Rich meta tags, Open Graph, and structured data
-- **Accessibility**: WCAG compliant with semantic HTML and ARIA labels
-
-## Usage
-
-1. Create a CSV file named `redirects.csv` with your short links:
-
-   ```csv
-   url,target,status
-
-   # GitHub and development links
-   /gh,https://github.com/yourusername,301
-   /blog,https://yourblog.com,301
-
-   # Marketing and promotional links
-   /promo,https://yoursite.com/special-offer,302
-   /docs,https://docs.yourproject.com,301
-   ```
-
-2. Run the service:
-
-   ```bash
-   cargo run --release
-   # or use the binary directly
-   ./target/release/dslf
-   ```
-
-3. The service will start on `http://127.0.0.1:3000`
-
-4. Your short links are now live:
-   - `http://yourdomain.com/gh` → `https://github.com/yourusername`
-   - `http://yourdomain.com/blog` → `https://yourblog.com`
-   - `http://yourdomain.com/promo` → `https://yoursite.com/special-offer`
-
-## Link Index Page
-
-Create a beautiful LinkTree-style landing page at `/` (index.html) to showcase your social media links and important links. Simply create a `link-index.yaml` file in your project root:
-
-```yaml
-# Profile information
-profile:
-  name: "Your Name"
-  bio: "Software Developer | Tech Enthusiast | Open Source Contributor"
-  type: "person" # "person" or "organization" - affects SEO structured data
-  # background: "https://example.com/bg.jpg"  # Optional background image
-
-# Social media links - supported platforms with FontAwesome icons
-social:
-  linkedin: "https://linkedin.com/in/yourusername"
-  github: "https://github.com/yourusername"
-  twitter: "https://twitter.com/yourusername"
-  website: "https://yourwebsite.com"
-  email: "mailto:your.email@example.com"
-  instagram: "https://instagram.com/yourusername"
-  youtube: "https://youtube.com/@yourusername"
-
-# Custom links - any additional links you want to showcase
-links:
-  "My Portfolio": "https://yourportfolio.com"
-  "Latest Blog Post": "https://yourblog.com/latest"
-  "Join My Newsletter": "https://newsletter.example.com"
-  "Buy Me a Coffee": "https://buymeacoffee.com/yourusername"
-
-# Footer settings
-footer:
-  show_powered_by: true # Set to false to hide the "Built with DSLF" footer
-```
-
-### Supported Social Platforms
-
-The link index page includes FontAwesome icons for these platforms:
-
-- **Professional**: LinkedIn, GitHub, GitLab, Stack Overflow, CodePen
-- **Social**: Twitter, Instagram, Facebook, YouTube, TikTok
-- **Communication**: Email, Discord, Telegram, Slack
-- **Content**: Medium, Dev.to, Hashnode, Behance, Dribbble
-- **Business**: Website, Calendly
-
-### Link Index Features
-
-- **🎨 Beautiful Design**: Modern gradient background with glassmorphism effects
-- **📱 Mobile Responsive**: Perfect on all screen sizes
-- **⚡ Lightning Fast**: Generated at build time, served as static HTML
-- **🔍 SEO Optimized**: Rich meta tags, Open Graph, Twitter Cards, and JSON-LD structured data
-- **♿ Accessibility**: WCAG compliant with semantic HTML, ARIA labels, and screen reader support
-- **🎭 Conditional Generation**: Only generated if `link-index.yaml` exists
-- **🎯 Empty Value Handling**: Automatically ignores empty social media links
-- **🏢 Company Support**: Supports both personal profiles and organizations
-
-### SEO & Social Media
-
-The link index page is fully optimized for search engines and social sharing:
-
-- **Structured Data**: JSON-LD with Person/Organization schema for rich search results
-- **Open Graph**: Rich previews on Facebook, LinkedIn, and other platforms
-- **Twitter Cards**: Enhanced Twitter sharing with proper meta tags
-- **Semantic HTML**: Proper heading structure, navigation landmarks, and content sections
-- **Meta Tags**: Complete title, description, and author information
-
-### Docker with Link Index
-
-```bash
-# Include link index in your Docker deployment
-docker run -p 3000:3000 \
-  -v $(pwd)/redirects.csv:/app/redirects.csv \
-  -v $(pwd)/link-index.yaml:/app/link-index.yaml \
-  ghcr.io/vpetersson/dslf:latest
-```
-
-## Command Line Options
-
-### Main Options
-
-- `--validate` or `-v`: Validate all destination URLs before starting (use in deployment/CI)
-- `--check` or `-k`: Check configuration file syntax without validating destinations
-- `--config <file>` or `-c <file>`: Specify a custom CSV file path (default: redirects.csv)
-- `--bind <address>` or `-b <address>`: Bind address (default: 0.0.0.0, env: DSLF_BIND_ADDR)
-- `--port <port>` or `-p <port>`: Port to listen on (default: 3000, env: DSLF_PORT)
-- `--modern` or `-m`: Use modern HTTP redirect codes (307/308) instead of classic ones (301/302)
-- `--help` or `-h`: Show help information
-
-**Note**: The `--validate` option makes actual HTTP requests to check if destinations are reachable. Use this during deployment or in CI/CD pipelines, not during development testing. The `--check` option only validates the CSV file format and syntax without making any network requests, making it ideal for quick configuration validation during development or as a fast pre-flight check before deployment.
-
-### Import Command
-
-DSLF can import links from external URL shortening services and convert them to the standard CSV format:
-
-```bash
-# Import from Rebrandly
-REBRANDLY_API_KEY=your_api_key_here dslf import rebrandly
-
-# Import to custom output file
-REBRANDLY_API_KEY=your_api_key_here dslf import rebrandly --output my-links.csv
-
-# Alternative environment variable name
-REBRANDLY_TOKEN=your_api_key_here dslf import rebrandly
-```
-
-**Supported providers:**
-
-- **Rebrandly**: Imports all active links from your Rebrandly account
-
-**Environment Variables:**
-
-- `REBRANDLY_API_KEY` or `REBRANDLY_TOKEN`: Your Rebrandly API key
-
-The import command handles pagination automatically and will fetch all your links regardless of quantity. Links are converted to the DSLF format with permanent redirects (301) by default.
-
-### Examples
-
-```bash
-# Validate all destinations before starting
-./target/release/dslf --validate
-
-# Check configuration file syntax without network requests
-./target/release/dslf --check
-
-# Check a custom configuration file
-./target/release/dslf --check --config custom-redirects.csv
-
-# Use a custom config file
-./target/release/dslf --config custom-redirects.csv
-
-# Bind to specific address and port
-./target/release/dslf --bind 127.0.0.1 --port 8080
-
-# Use environment variables
-DSLF_BIND_ADDR=192.168.1.100 DSLF_PORT=9000 ./target/release/dslf
-
-# Use modern HTTP redirect codes (307/308 instead of 301/302)
-./target/release/dslf --modern
-
-# Validate destinations in a custom config file
-./target/release/dslf --validate --config custom-redirects.csv
-
-# Import links from Rebrandly
-REBRANDLY_API_KEY=your_api_key ./target/release/dslf import rebrandly
-
-# Import from Rebrandly to custom output file
-REBRANDLY_API_KEY=your_api_key ./target/release/dslf import rebrandly --output rebrandly-links.csv
-```
-
-## Binary Distribution
-
-### Local Build
-
-The optimized binary is available at: `target/release/dslf`
-
-### GitHub Releases
-
-Pre-built binaries for multiple platforms are available on the [Releases page](../../releases):
-
-- **Linux x86_64**: `dslf-vX.Y.Z-x86_64-unknown-linux-gnu.tar.gz`
-- **Linux x86_64 (static)**: `dslf-vX.Y.Z-x86_64-unknown-linux-musl.tar.gz`
-- **macOS Intel**: `dslf-vX.Y.Z-x86_64-apple-darwin.tar.gz`
-- **macOS Apple Silicon**: `dslf-vX.Y.Z-aarch64-apple-darwin.tar.gz`
-- **Windows x86_64**: `dslf-vX.Y.Z-x86_64-pc-windows-gnu.zip`
-
-### Creating a Release
-
-**Using the helper script (recommended):**
-
-```bash
-./scripts/create-release.sh
-```
-
-The release script provides an interactive experience that:
-
-- **Validates environment**: Ensures you're in a git repository with no uncommitted changes
-- **Suggests versions**: Automatically calculates next patch/minor/major versions based on existing tags
-- **Runs quality checks**: Executes tests and builds the release binary to ensure everything works
-- **Creates and pushes tags**: Handles git tagging and pushing to trigger the CI/CD pipeline
-
-**Script workflow:**
-
-1. Checks git status and current branch
-2. Parses latest tag to suggest next semantic version
-3. Allows you to choose: patch (v1.0.1), minor (v1.1.0), major (v2.0.0), or custom version
-4. Runs `cargo test` to ensure all tests pass
-5. Builds `cargo build --release` to verify the binary compiles
-6. Tests the binary execution with `--help` flag
-7. Creates annotated git tag and pushes to origin
-8. Displays links to monitor the CI/CD pipeline
-
-**Prerequisites:**
-
-- Clean git working directory (no uncommitted changes)
-- All tests must pass
-- Binary must build successfully
-
-**Example session:**
-
-```bash
-$ ./scripts/create-release.sh
-[INFO] Latest tag: v0.1.0
-Suggested next versions:
-  1) Patch release: v0.1.1
-  2) Minor release: v0.2.0
-  3) Major release: v1.0.0
-  4) Custom version
-Choose an option (1-4): 2
-[INFO] Creating release: v0.2.0
-[INFO] Running tests...
-[INFO] Building release binary...
-[INFO] Testing binary...
-[INFO] All checks passed!
-This will:
-  - Create and push tag: v0.2.0
-  - Trigger CI/CD pipeline to build and publish release
-Continue? (y/N): y
-[INFO] Release v0.2.0 created successfully!
-[INFO] CI/CD pipeline will now build and publish the release
-```
-
-**Manual release:**
-
-```bash
-# Tag a new version
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-The CI/CD pipeline will automatically:
-
-1. Build binaries for all supported platforms
-2. Create a GitHub release
-3. Upload all platform binaries as release assets
-4. Build and publish multi-platform Docker images (linux/amd64, linux/arm64) to Docker Hub and GitHub Container Registry
-
-**Note**: Use semantic versioning (e.g., `v1.0.0`, `v1.2.3`, `v2.0.0-beta.1`) for proper release management.
-
-## CSV Format
-
-- `url`: The short path (e.g., `/gh`, `/blog`, `/promo`)
-- `target`: The full URL to redirect to (e.g., `https://github.com/yourusername`)
-- `status`: HTTP status code (301 for permanent, 302 for temporary/tracking)
-
-### Comments and Whitespace
-
-DSLF supports both comments and whitespace lines for better organization:
-
-**Comments**: Full-line comments using `#`
-**Whitespace**: Empty lines or lines with only whitespace (spaces, tabs)
+| Feature            | Description                                                  |
+| ------------------ | ------------------------------------------------------------ |
+| **Blazing Fast**   | Sub-millisecond redirects, 50k+ req/sec on modest hardware   |
+| **LinkTree Page**  | Beautiful landing page with Catppuccin theming               |
+| **Zero Database**  | Simple CSV config—no PostgreSQL, Redis, or external services |
+| **Tiny Footprint** | 5MB binary, <10MB RAM, sub-second cold starts                |
+| **Privacy First**  | No tracking, no analytics, fully self-hosted                 |
+| **SEO Optimized**  | Open Graph, Twitter Cards, JSON-LD structured data           |
+| **Accessible**     | WCAG compliant with semantic HTML and ARIA labels            |
+| **Import Support** | Migrate from Rebrandly with one command                      |
+
+## Configuration
+
+| File              | Required | Description                        |
+| ----------------- | -------- | ---------------------------------- |
+| `redirects.csv`   | Yes      | Your short link redirects          |
+| `link-index.yaml` | No       | LinkTree-style landing page config |
+
+Both have `.example` templates. Copy and customize them—examples are tracked in git, your configs are gitignored.
+
+### Redirects (redirects.csv)
 
 ```csv
 url,target,status
 
-# GitHub and development links
+# Development
 /gh,https://github.com/yourusername,301
-/blog,https://yourblog.com,301
-
-# Marketing and promotional links
-/promo,https://yoursite.com/special-offer,302
-
-# Documentation
 /docs,https://docs.yourproject.com,301
+
+# Marketing (302 for tracking)
+/promo,https://yoursite.com/offer,302
 ```
 
-- **Full-line comments**: Lines starting with `#` (after optional whitespace) are ignored
-- **Empty lines**: Completely blank lines are ignored
-- **Whitespace lines**: Lines containing only spaces or tabs are ignored
-- **Organizational**: Use comments and whitespace to group related redirects and improve readability
-- **Flexible placement**: Comments and whitespace can appear anywhere between data rows
+**Fields:**
 
-> **⚠️ Spreadsheet Warning**: Opening CSV files in spreadsheet applications (Excel, Google Sheets, etc.) will likely remove all comments and empty lines, losing the organizational structure. Edit the CSV file with a text editor to preserve these features.
+- `url` — Short path (e.g., `/gh`)
+- `target` — Destination URL
+- `status` — `301` (permanent) or `302` (temporary)
 
-### HTTP Redirect Codes
+> Comments (`#`) and blank lines are supported for organization.
 
-By default, DSLF uses classic HTTP redirect codes:
+### LinkTree Page (link-index.yaml)
 
-- **301**: Moved Permanently (classic permanent redirect)
-- **302**: Found (classic temporary redirect)
+Optional landing page at `/` with your profile, social links, and custom links.
 
-With the `--modern` flag, DSLF uses modern HTTP redirect codes:
+```yaml
+profile:
+  name: "Your Name"
+  bio: "Software Developer | Open Source Enthusiast"
+  type: "person" # or "organization"
+  avatar: "https://example.com/avatar.jpg" # optional
 
-- **308**: Permanent Redirect (modern permanent redirect, preserves request method)
-- **307**: Temporary Redirect (modern temporary redirect, preserves request method)
+theme:
+  preset: "mocha" # mocha | macchiato | frappe | latte (Catppuccin)
+  buttonStyle: "glass" # glass | solid | outline
 
-**When to use modern codes**: The modern codes (307/308) are more semantically correct as they guarantee the request method (GET, POST, etc.) won't change during redirection. Use `--modern` if your clients rely on specific HTTP methods being preserved.
+social:
+  github: "https://github.com/yourusername"
+  linkedin: "https://linkedin.com/in/yourusername"
+  email: "mailto:you@example.com"
+
+links:
+  - title: "My Portfolio"
+    url: "https://portfolio.example.com"
+    icon: "fas fa-briefcase"
+  - title: "Latest Blog Post"
+    url: "https://blog.example.com/latest"
+    highlight: true
+
+footer:
+  show_powered_by: true
+```
+
+**Supported social platforms:** LinkedIn, GitHub, GitLab, Twitter/X, Instagram, YouTube, TikTok, Discord, Telegram, Mastodon, Bluesky, and [more](templates/index-utils.ts).
+
+**Theme:** Uses [Catppuccin](https://catppuccin.com/) color palette with 4 flavors (Mocha, Macchiato, Frappé, Latte).
 
 ## Deployment
 
-### Production Setup
+### Docker
 
-1. **Get a domain**: Register a short domain (e.g., `yourdomain.co`, `yl.ink`)
-2. **Deploy the binary**: Upload `target/release/dslf` to your server
-3. **Configure reverse proxy**: Use nginx/Apache to proxy to port 3000
-4. **Set up SSL**: Use Let's Encrypt for HTTPS
-5. **Run as service**: Use systemd, Docker, or similar to keep it running
+**Build arguments:**
 
-### Platform-as-a-Service Deployment
-
-DSLF is **ideal for modern PaaS platforms** like Fly.io, Railway, Render, and similar services due to its:
-
-- **Tiny footprint**: 5MB binary uses minimal resources and starts instantly
-- **No database required**: CSV-based configuration eliminates infrastructure complexity
-- **Low memory usage**: Typically runs in <10MB RAM, perfect for cost-effective deployments
-- **Fast cold starts**: Sub-second startup times ideal for serverless-style deployments
-- **Single binary**: No dependencies or build steps required on the platform
-
-**Example Fly.io deployment:**
+| Argument         | Default           | Description             |
+| ---------------- | ----------------- | ----------------------- |
+| `REDIRECTS_FILE` | `redirects.csv`   | Path to redirects CSV   |
+| `LINKTREE_FILE`  | `link-index.yaml` | Path to LinkTree config |
 
 ```bash
-# Deploy with a simple fly.toml
-fly deploy
+# Build with defaults
+docker build -t dslf .
+
+# Build with custom config paths
+docker build -t dslf \
+  --build-arg REDIRECTS_FILE=my-links.csv \
+  --build-arg LINKTREE_FILE=my-profile.yaml .
+
+# Run
+docker run -p 3000:3000 dslf
 ```
 
-The minimal resource requirements mean you can run DSLF on the smallest available instances while still handling thousands of redirects per second, making it extremely cost-effective for personal and small business use cases.
+**Using pre-built images:**
 
-### Deployment Patterns
+```bash
+# Docker Hub
+docker run -p 3000:3000 -v $(pwd)/redirects.csv:/app/redirects.csv vpetersson/dslf
 
-**Custom Docker Image (Recommended for production):**
-
-```dockerfile
-FROM vpetersson/dslf:latest
-COPY production-redirects.csv /redirects.csv
+# GitHub Container Registry
+docker run -p 3000:3000 -v $(pwd)/redirects.csv:/app/redirects.csv ghcr.io/vpetersson/dslf
 ```
 
-**Kubernetes Deployment:**
+### Docker Compose
+
+```yaml
+services:
+  dslf:
+    image: vpetersson/dslf:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - "./redirects.csv:/app/redirects.csv"
+      - "./link-index.yaml:/app/link-index.yaml" # optional
+    environment:
+      - RUST_LOG=dslf=info
+    restart: unless-stopped
+```
+
+### Kubernetes
 
 ```yaml
 apiVersion: apps/v1
@@ -403,143 +200,76 @@ spec:
     spec:
       containers:
         - name: dslf
-          image: your-registry/dslf:v1.0
+          image: vpetersson/dslf:latest
           ports:
             - containerPort: 3000
-          env:
-            - name: DSLF_BIND_ADDR
-              value: "0.0.0.0"
-            - name: DSLF_PORT
-              value: "3000"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
 ```
 
-### Docker Deployment
+### PaaS (Fly.io, Railway, Render)
 
-**Using pre-built images:**
+DSLF is ideal for PaaS due to its tiny footprint:
+
+- **5MB binary** — Minimal resources
+- **<10MB RAM** — Cost-effective instances
+- **Sub-second cold starts** — Perfect for serverless
 
 ```bash
-# From Docker Hub - latest version
-docker run -p 3000:3000 -v $(pwd)/redirects.csv:/redirects.csv vpetersson/dslf
-
-# From Docker Hub - specific version
-docker run -p 3000:3000 -v $(pwd)/redirects.csv:/redirects.csv vpetersson/dslf:v1.0.0
-
-# From GitHub Container Registry - latest version
-docker run -p 3000:3000 -v $(pwd)/redirects.csv:/redirects.csv ghcr.io/mvip/dslf
-
-# From GitHub Container Registry - specific version
-docker run -p 3000:3000 -v $(pwd)/redirects.csv:/redirects.csv ghcr.io/mvip/dslf:v1.0.0
-
-# With custom configuration
-docker run -p 8080:8080 -e DSLF_PORT=8080 -v ./my-redirects.csv:/redirects.csv vpetersson/dslf
-
-# Validate URLs before starting
-docker run --rm -v $(pwd)/redirects.csv:/redirects.csv vpetersson/dslf /dslf --validate
-
-# Check configuration file syntax without network requests
-docker run --rm -v $(pwd)/redirects.csv:/redirects.csv vpetersson/dslf /dslf --check
+# Fly.io
+fly deploy
 ```
 
-> **Note**: Docker images are built for multiple platforms (`linux/amd64`, `linux/arm64`) so they'll run natively on both Intel/AMD and ARM-based systems (including Apple Silicon Macs) without platform warnings.
-
-**Build and run locally:**
+## CLI Reference
 
 ```bash
-# Build the image
-docker build -t dslf .
+dslf [OPTIONS] [COMMAND]
 
-# Run with default config (port 3000)
-docker run -p 3000:3000 dslf
+Options:
+  -c, --config <FILE>    CSV file path [default: redirects.csv]
+  -b, --bind <ADDR>      Bind address [default: 0.0.0.0] [env: DSLF_BIND_ADDR]
+  -p, --port <PORT>      Port [default: 3000] [env: DSLF_PORT]
+  -m, --modern           Use 307/308 instead of 301/302
+  -v, --validate         Validate destination URLs before starting
+  -k, --check            Check config syntax (no network requests)
+  -h, --help             Show help
 
-# Run on different port using environment variables
-docker run -p 8080:8080 -e DSLF_PORT=8080 dslf
-
-# Run with custom config and port
-docker run -p 9000:9000 -e DSLF_PORT=9000 -v ./my-redirects.csv:/redirects.csv dslf
-
-# Run with CLI arguments
-docker run -p 8080:8080 dslf /dslf --port 8080 --config /redirects.csv
-
-# Use modern HTTP redirect codes
-docker run -p 3000:3000 dslf /dslf --modern
-
-# Validate URLs before starting
-docker run --rm dslf /dslf --validate
+Commands:
+  import rebrandly       Import links from Rebrandly
 ```
 
-**Creating your own custom image:**
-
-```dockerfile
-# Dockerfile
-FROM vpetersson/dslf:latest
-COPY my-redirects.csv /redirects.csv
-```
+**Examples:**
 
 ```bash
-# Build and run your custom image
-docker build -t my-link-shortener .
-docker run -p 3000:3000 my-link-shortener
+# Validate all destinations
+dslf --validate
 
-# Or push to your own registry
-docker tag my-link-shortener yourregistry/my-link-shortener:v1.0
-docker push yourregistry/my-link-shortener:v1.0
-```
+# Check syntax only (fast, no network)
+dslf --check
 
-**Docker Compose:**
+# Custom port and config
+dslf --port 8080 --config my-links.csv
 
-```yaml
-version: "3.8"
-services:
-  dslf:
-    image: vpetersson/dslf:latest # or ghcr.io/mvip/dslf:latest
-    ports:
-      - "3000:3000"
-    volumes:
-      - "./redirects.csv:/redirects.csv"
-    environment:
-      - DSLF_BIND_ADDR=0.0.0.0
-      - DSLF_PORT=3000
-    restart: unless-stopped
-```
-
-**Multi-stage Dockerfile (56.8MB final image):**
-
-- Architecture-independent build
-- Distroless runtime for security and minimal size
-- No shell or unnecessary tools in final image
-- Automatically published to Docker Hub and GitHub Container Registry
-- **Multi-platform support**: Available for both `linux/amd64` and `linux/arm64` architectures
-
-### Nginx Configuration
-
-```nginx
-server {
-    listen 80;
-    server_name yourdomain.co;
-
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
+# Import from Rebrandly
+REBRANDLY_API_KEY=xxx dslf import rebrandly
 ```
 
 ## Development
 
 ### Prerequisites
 
-- **Rust** (latest stable version)
-- **Cargo** (comes with Rust)
-- **Bun** (for frontend assets and testing)
+- **Rust** (latest stable)
+- **Bun** (for frontend assets)
 
-### Building from Source
+### Setup
 
 ```bash
 git clone https://github.com/vpetersson/dslf.git
 cd dslf
 
-# Install frontend dependencies
+# Install dependencies
 bun install
 
 # Build frontend assets
@@ -551,96 +281,31 @@ cargo build --release
 
 ### Testing
 
-Run the complete test suite:
-
 ```bash
-# Rust backend tests
-cargo test
+# All tests
+cargo test && bun test
 
-# TypeScript frontend tests (29 tests covering link index functionality)
-bun run test
-
-# Run all quality checks (linting, formatting, testing)
+# Quality checks (lint, format, test)
 bun run quality
+
+# Coverage
+cargo tarpaulin --out Html
 ```
 
-Generate coverage report:
+### Creating a Release
 
 ```bash
-cargo tarpaulin --out Html --output-dir coverage
-```
-
-### Development Workflow
-
-```bash
-# Frontend development with hot reload
-bun run dev
-
-# Build all assets
-bun run build
-
-# Code quality checks
-bun run lint        # TypeScript linting (ESLint)
-bun run format      # Code formatting (Prettier)
-bun run lint:fix    # Auto-fix linting issues
-```
-
-### Release Management
-
-The project includes a comprehensive release script at `scripts/create-release.sh` that automates the entire release process:
-
-```bash
-# Make script executable (first time only)
-chmod +x scripts/create-release.sh
-
-# Create a new release
 ./scripts/create-release.sh
 ```
 
-The script handles:
+The script validates, tests, builds, and creates a git tag that triggers CI/CD to build binaries and Docker images for all platforms.
 
-- **Version management**: Suggests next semantic version based on existing tags
-- **Quality assurance**: Runs tests and builds to ensure release readiness
-- **Git operations**: Creates properly formatted tags and pushes to trigger CI/CD
-- **Documentation**: Provides clear feedback and links to monitor the release process
+## License
 
-### Code Quality
+[Apache 2.0](LICENSE)
 
-The project maintains high code quality standards:
+---
 
-- **Formatting**: `cargo fmt --all` (enforced in CI)
-- **Linting**: `cargo clippy --all-targets --all-features -- -D warnings` (enforced in CI)
-- **Testing**: 70%+ test coverage with comprehensive unit and integration tests
-- **Documentation**: Inline code documentation and comprehensive README
-
-### CI/CD Optimizations
-
-The GitHub Actions workflow includes several optimizations for faster builds:
-
-- **Rust caching**: Uses built-in `actions/cache` to cache dependencies, registry, and target directories
-- **Parallel execution**: Test and Docker jobs run in parallel
-- **Optimized Docker builds**: Single build per workflow run with conditional multi-platform support
-- **Smart conditionals**: Multi-platform builds and pushes only occur on push events, single-platform builds for testing on PRs
-
-## Performance
-
-**Why DSLF outperforms traditional link shorteners:**
-
-- **Sub-millisecond response times**: Built with Axum and Tokio for maximum performance
-- **Minimal memory usage**: Entire ruleset loaded into memory for instant lookups
-- **No database overhead**: CSV-based configuration eliminates database latency
-- **Tiny binary size**: 5MB binary vs. complex web applications
-- **Zero external dependencies**: No Redis, PostgreSQL, or other services required
-
-**Benchmarks**: On a modest VPS, DSLF handles 50,000+ redirects per second with <1ms latency.
-
-## Use Cases
-
-- **Personal/Team link shortener**: Replace bit.ly for your organization
-- **Campaign tracking**: Use 302 redirects for marketing campaigns
-- **Vanity URLs**: Create memorable short links for your brand
-- **API endpoints**: Redirect to versioned APIs with easy config updates
-- **A/B testing**: Easily switch destinations by updating the CSV
-- **Event links**: Temporary redirects for conferences, webinars, etc.
-- **Custom Docker images**: Bake your redirects into a custom image for easy deployment
-- **Microservice architecture**: Deploy as a lightweight redirect service in your stack
+<p align="center">
+  <sub>Built with ❤️ using Rust and TypeScript</sub>
+</p>

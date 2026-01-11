@@ -3,23 +3,22 @@ import { mkdir, rmdir, unlink } from "fs/promises";
 
 import { beforeEach, afterEach, describe, expect, test } from "bun:test";
 
-// Import the functions we want to test
+import { parseConfig, validateConfig } from "../templates/config/parser";
+import type { LinkConfig, Config } from "../templates/config/schema";
 import {
-  parseYaml,
   generateSocialLink,
   generateCustomLink,
   socialIcons,
-  validateConfig,
   generateIndexHtml
 } from "../templates/index-utils";
 
-describe("Link Index - YAML Parsing", () => {
+describe("Link Index - YAML Parsing with js-yaml + Zod", () => {
   test("should parse valid YAML configuration", () => {
     const yamlContent = `
 profile:
   name: "Test User"
   bio: "Test Bio"
-  background: "https://example.com/bg.jpg"
+  avatar: "https://example.com/avatar.jpg"
 
 footer:
   show_powered_by: true
@@ -27,59 +26,48 @@ footer:
 social:
   linkedin: "https://linkedin.com/in/test"
   github: "https://github.com/test"
-  twitter: ""
 
 links:
-  "Portfolio": "https://portfolio.test"
-  "Blog": ""
-  "Contact": "https://contact.test"
+  - title: "Portfolio"
+    url: "https://portfolio.test"
+  - title: "Contact"
+    url: "https://contact.test"
 `;
 
-    const config = parseYaml(yamlContent);
+    const config = parseConfig(yamlContent);
 
     expect(config.profile.name).toBe("Test User");
     expect(config.profile.bio).toBe("Test Bio");
-    expect(config.profile.background).toBe("https://example.com/bg.jpg");
+    expect(config.profile.avatar).toBe("https://example.com/avatar.jpg");
     expect(config.footer?.show_powered_by).toBe(true);
     expect(config.social?.linkedin).toBe("https://linkedin.com/in/test");
     expect(config.social?.github).toBe("https://github.com/test");
-    expect(config.links?.["Portfolio"]).toBe("https://portfolio.test");
-    expect(config.links?.["Contact"]).toBe("https://contact.test");
+    expect(config.links).toHaveLength(2);
+    expect(config.links?.[0].title).toBe("Portfolio");
+    expect(config.links?.[0].url).toBe("https://portfolio.test");
   });
 
-  test("should ignore empty values in YAML", () => {
+  test("should parse legacy record-style links", () => {
     const yamlContent = `
 profile:
   name: "Test User"
   bio: "Test Bio"
 
-social:
-  linkedin: "https://linkedin.com/in/test"
-  twitter: ""
-  github: "https://github.com/test"
-  instagram: ""
-
 links:
   "Portfolio": "https://portfolio.test"
-  "Empty Link": ""
   "Contact": "https://contact.test"
 `;
 
-    const config = parseYaml(yamlContent);
+    const config = parseConfig(yamlContent);
 
-    // Should include non-empty values
-    expect(config.social?.linkedin).toBe("https://linkedin.com/in/test");
-    expect(config.social?.github).toBe("https://github.com/test");
-    expect(config.links?.["Portfolio"]).toBe("https://portfolio.test");
-    expect(config.links?.["Contact"]).toBe("https://contact.test");
-
-    // Should not include empty values
-    expect(config.social?.twitter).toBeUndefined();
-    expect(config.social?.instagram).toBeUndefined();
-    expect(config.links?.["Empty Link"]).toBeUndefined();
+    expect(config.links).toHaveLength(2);
+    expect(config.links?.[0].title).toBe("Portfolio");
+    expect(config.links?.[0].url).toBe("https://portfolio.test");
+    expect(config.links?.[1].title).toBe("Contact");
+    expect(config.links?.[1].url).toBe("https://contact.test");
   });
 
-  test("should handle comments and quotes in YAML", () => {
+  test("should handle comments in YAML", () => {
     const yamlContent = `
 # This is a comment
 profile:
@@ -91,7 +79,7 @@ social:
   github: https://github.com/test # No quotes
 `;
 
-    const config = parseYaml(yamlContent);
+    const config = parseConfig(yamlContent);
 
     expect(config.profile.name).toBe("Test User");
     expect(config.profile.bio).toBe("Single quoted bio");
@@ -106,7 +94,7 @@ profile:
   bio: "Minimal Bio"
 `;
 
-    const config = parseYaml(yamlContent);
+    const config = parseConfig(yamlContent);
 
     expect(config.profile.name).toBe("Minimal User");
     expect(config.profile.bio).toBe("Minimal Bio");
@@ -115,7 +103,7 @@ profile:
     expect(config.footer).toBeUndefined();
   });
 
-  test("should skip avatar field", () => {
+  test("should parse avatar field", () => {
     const yamlContent = `
 profile:
   name: "Test User"
@@ -123,11 +111,11 @@ profile:
   avatar: "https://example.com/avatar.jpg"
 `;
 
-    const config = parseYaml(yamlContent);
+    const config = parseConfig(yamlContent);
 
     expect(config.profile.name).toBe("Test User");
     expect(config.profile.bio).toBe("Test Bio");
-    expect((config.profile as any).avatar).toBeUndefined();
+    expect(config.profile.avatar).toBe("https://example.com/avatar.jpg");
   });
 
   test("should parse footer configuration", () => {
@@ -140,21 +128,20 @@ footer:
   show_powered_by: false
 `;
 
-    const config = parseYaml(yamlContent);
+    const config = parseConfig(yamlContent);
 
     expect(config.footer?.show_powered_by).toBe(false);
   });
 
-  test("should default footer to show when not specified", () => {
+  test("should leave footer undefined when not specified", () => {
     const yamlContent = `
 profile:
   name: "Test User"
   bio: "Test Bio"
 `;
 
-    const config = parseYaml(yamlContent);
+    const config = parseConfig(yamlContent);
 
-    // Footer should be undefined when not specified
     expect(config.footer).toBeUndefined();
   });
 
@@ -166,7 +153,7 @@ profile:
   type: "organization"
 `;
 
-    const config = parseYaml(yamlContent);
+    const config = parseConfig(yamlContent);
 
     expect(config.profile.name).toBe("Test Company");
     expect(config.profile.bio).toBe("A test organization");
@@ -180,11 +167,133 @@ profile:
   bio: "A test person"
 `;
 
-    const config = parseYaml(yamlContent);
+    const config = parseConfig(yamlContent);
 
     expect(config.profile.name).toBe("Test User");
     expect(config.profile.bio).toBe("A test person");
-    expect(config.profile.type).toBeUndefined();
+    expect(config.profile.type).toBe("person");
+  });
+
+  test("should parse Catppuccin theme preset", () => {
+    const yamlContent = `
+profile:
+  name: "Test User"
+  bio: "Test Bio"
+
+theme:
+  preset: "latte"
+  buttonStyle: "solid"
+`;
+
+    const config = parseConfig(yamlContent);
+
+    expect(config.theme?.preset).toBe("latte");
+    expect(config.theme?.buttonStyle).toBe("solid");
+  });
+
+  test("should parse link with full options", () => {
+    const yamlContent = `
+profile:
+  name: "Test User"
+  bio: "Test Bio"
+
+links:
+  - title: "Featured Project"
+    url: "https://project.test"
+    icon: "fas fa-star"
+    description: "My featured project"
+    highlight: true
+`;
+
+    const config = parseConfig(yamlContent);
+
+    expect(config.links).toHaveLength(1);
+    const link = config.links![0];
+    expect(link.title).toBe("Featured Project");
+    expect(link.url).toBe("https://project.test");
+    expect(link.icon).toBe("fas fa-star");
+    expect(link.description).toBe("My featured project");
+    expect(link.highlight).toBe(true);
+  });
+});
+
+describe("Link Index - Validation", () => {
+  test("should throw on missing profile name", () => {
+    const yamlContent = `
+profile:
+  bio: "Valid bio"
+`;
+
+    expect(() => parseConfig(yamlContent)).toThrow();
+  });
+
+  test("should throw on missing profile bio", () => {
+    const yamlContent = `
+profile:
+  name: "Valid name"
+`;
+
+    expect(() => parseConfig(yamlContent)).toThrow();
+  });
+
+  test("should throw on empty profile name", () => {
+    const yamlContent = `
+profile:
+  name: ""
+  bio: "Valid bio"
+`;
+
+    expect(() => parseConfig(yamlContent)).toThrow();
+  });
+
+  test("should throw on invalid link URL", () => {
+    const yamlContent = `
+profile:
+  name: "Test User"
+  bio: "Test Bio"
+
+links:
+  - title: "Invalid Link"
+    url: "not-a-valid-url"
+`;
+
+    expect(() => parseConfig(yamlContent)).toThrow();
+  });
+
+  test("should throw on invalid theme preset", () => {
+    const yamlContent = `
+profile:
+  name: "Test User"
+  bio: "Test Bio"
+
+theme:
+  preset: "invalid-preset"
+`;
+
+    expect(() => parseConfig(yamlContent)).toThrow();
+  });
+
+  test("should throw on invalid theme color format", () => {
+    const yamlContent = `
+profile:
+  name: "Test User"
+  bio: "Test Bio"
+
+theme:
+  primary: "not-a-color"
+`;
+
+    expect(() => parseConfig(yamlContent)).toThrow();
+  });
+
+  test("validateConfig returns true for valid config", () => {
+    const config = { profile: { name: "Valid", bio: "Valid bio" } };
+    expect(validateConfig(config)).toBe(true);
+  });
+
+  test("validateConfig returns false for invalid config", () => {
+    const config = { profile: { name: "" } };
+    expect(validateConfig(config)).toBe(false);
   });
 });
 
@@ -200,13 +309,44 @@ describe("Link Index - HTML Generation", () => {
   });
 
   test("should generate custom link HTML", () => {
-    const html = generateCustomLink("My Portfolio", "https://portfolio.test");
+    const link: LinkConfig = {
+      title: "My Portfolio",
+      url: "https://portfolio.test"
+    };
+    const html = generateCustomLink(link);
 
     expect(html).toContain('href="https://portfolio.test"');
     expect(html).toContain('target="_blank"');
     expect(html).toContain('rel="noopener noreferrer"');
     expect(html).toContain("My Portfolio");
-    expect(html).toContain("fas fa-external-link-alt");
+    // Arrow icon is always shown
+    expect(html).toContain("fas fa-arrow-right");
+  });
+
+  test("should generate custom link with icon and description", () => {
+    const link: LinkConfig = {
+      title: "Featured Project",
+      url: "https://project.test",
+      icon: "fas fa-star",
+      description: "My awesome project"
+    };
+    const html = generateCustomLink(link);
+
+    expect(html).toContain("fas fa-star");
+    expect(html).toContain("My awesome project");
+    expect(html).toContain("Featured Project");
+  });
+
+  test("should generate highlighted link", () => {
+    const link: LinkConfig = {
+      title: "Important Link",
+      url: "https://important.test",
+      highlight: true
+    };
+    const html = generateCustomLink(link);
+
+    expect(html).toContain("ring-2");
+    expect(html).toContain("ring-offset-2");
   });
 
   test("should use fallback icon for unknown social platform", () => {
@@ -216,15 +356,20 @@ describe("Link Index - HTML Generation", () => {
     expect(html).toContain("Unknownplatform");
   });
 
-  test("should handle special characters in link titles", () => {
-    const html = generateCustomLink('My "Awesome" Portfolio', "https://portfolio.test");
+  test("should escape special characters in link titles", () => {
+    const link: LinkConfig = {
+      title: 'My "Awesome" <Portfolio>',
+      url: "https://portfolio.test"
+    };
+    const html = generateCustomLink(link);
 
-    expect(html).toContain('My "Awesome" Portfolio');
+    expect(html).toContain("&quot;Awesome&quot;");
+    expect(html).toContain("&lt;Portfolio&gt;");
   });
 
   test("should include footer when show_powered_by is true", () => {
-    const config = {
-      profile: { name: "Test", bio: "Test Bio" },
+    const config: Config = {
+      profile: { name: "Test", bio: "Test Bio", type: "person" },
       footer: { show_powered_by: true }
     };
 
@@ -237,20 +382,19 @@ describe("Link Index - HTML Generation", () => {
   });
 
   test("should exclude footer when show_powered_by is false", () => {
-    const config = {
-      profile: { name: "Test", bio: "Test Bio" },
+    const config: Config = {
+      profile: { name: "Test", bio: "Test Bio", type: "person" },
       footer: { show_powered_by: false }
     };
 
     const html = generateIndexHtml(config);
 
     expect(html).not.toContain("Built with");
-    expect(html).not.toContain("fab fa-github");
   });
 
   test("should include footer by default when footer config is missing", () => {
-    const config = {
-      profile: { name: "Test", bio: "Test Bio" }
+    const config: Config = {
+      profile: { name: "Test", bio: "Test Bio", type: "person" }
     };
 
     const html = generateIndexHtml(config);
@@ -260,8 +404,8 @@ describe("Link Index - HTML Generation", () => {
   });
 
   test("should generate Person structured data by default", () => {
-    const config = {
-      profile: { name: "John Doe", bio: "Developer" }
+    const config: Config = {
+      profile: { name: "John Doe", bio: "Developer", type: "person" }
     };
 
     const html = generateIndexHtml(config);
@@ -271,14 +415,81 @@ describe("Link Index - HTML Generation", () => {
   });
 
   test("should generate Organization structured data when type is organization", () => {
-    const config = {
-      profile: { name: "Acme Corp", bio: "Software company", type: "organization" as const }
+    const config: Config = {
+      profile: { name: "Acme Corp", bio: "Software company", type: "organization" }
     };
 
     const html = generateIndexHtml(config);
 
     expect(html).toContain('"@type": "Organization"');
     expect(html).toContain('"name": "Acme Corp"');
+  });
+
+  test("should include local asset references", () => {
+    const config: Config = {
+      profile: { name: "Test", bio: "Test Bio", type: "person" }
+    };
+
+    const html = generateIndexHtml(config);
+
+    expect(html).toContain('href="css/inter.css"');
+    expect(html).toContain('href="css/fontawesome.min.css"');
+    expect(html).toContain('href="styles.css"');
+    // Should NOT contain CDN references
+    expect(html).not.toContain("fonts.googleapis.com");
+    expect(html).not.toContain("cdnjs.cloudflare.com");
+  });
+
+  test("should apply Catppuccin theme", () => {
+    const config: Config = {
+      profile: { name: "Test", bio: "Test Bio", type: "person" },
+      theme: { preset: "mocha", buttonStyle: "glass", background: "gradient" }
+    };
+
+    const html = generateIndexHtml(config);
+
+    // Catppuccin Mocha colors
+    expect(html).toContain("--color-primary: #cba6f7"); // Mauve
+    expect(html).toContain("--color-secondary: #f5c2e7"); // Pink
+  });
+
+  test("should apply latte theme with light mode adjustments", () => {
+    const config: Config = {
+      profile: { name: "Test", bio: "Test Bio", type: "person" },
+      theme: { preset: "latte", buttonStyle: "glass", background: "gradient" }
+    };
+
+    const html = generateIndexHtml(config);
+
+    // Catppuccin Latte colors
+    expect(html).toContain("--color-primary: #8839ef"); // Mauve
+    expect(html).toContain('theme-color" content="#eff1f5"'); // Latte base
+  });
+
+  test("should include avatar when provided", () => {
+    const config: Config = {
+      profile: {
+        name: "Test User",
+        bio: "Test Bio",
+        type: "person",
+        avatar: "https://example.com/avatar.jpg"
+      }
+    };
+
+    const html = generateIndexHtml(config);
+
+    expect(html).toContain('src="https://example.com/avatar.jpg"');
+    expect(html).toContain('alt="Test User"');
+  });
+
+  test("should reference Catppuccin in comments", () => {
+    const config: Config = {
+      profile: { name: "Test", bio: "Test Bio", type: "person" }
+    };
+
+    const html = generateIndexHtml(config);
+
+    expect(html).toContain("catppuccin.com");
   });
 });
 
@@ -299,6 +510,13 @@ describe("Link Index - Social Icons", () => {
     expect(socialIcons.stackoverflow).toBe("fab fa-stack-overflow");
     expect(socialIcons.dev).toBe("fab fa-dev");
     expect(socialIcons.medium).toBe("fab fa-medium");
+  });
+
+  test("should have Fediverse and newer platform icons", () => {
+    expect(socialIcons.mastodon).toBe("fab fa-mastodon");
+    expect(socialIcons.bluesky).toBe("fab fa-bluesky");
+    expect(socialIcons.threads).toBe("fab fa-threads");
+    expect(socialIcons.x).toBe("fab fa-x-twitter");
   });
 });
 
@@ -326,101 +544,82 @@ describe("Link Index - File Generation", () => {
   });
 
   test("should skip generation when config file is missing", async () => {
-    // This test would require refactoring the main function to be testable
-    // For now, we'll test the logic components
     expect(existsSync(testConfigPath)).toBe(false);
-  });
-
-  test("should validate required profile fields", () => {
-    const invalidConfigs = [
-      { profile: { name: "", bio: "Valid bio" } },
-      { profile: { name: "Valid name", bio: "" } },
-      { profile: { bio: "Valid bio" } as any }, // missing name
-      { profile: { name: "Valid name" } as any } // missing bio
-    ];
-
-    invalidConfigs.forEach(config => {
-      expect(validateConfig(config)).toBe(false);
-    });
-
-    const validConfig = { profile: { name: "Valid name", bio: "Valid bio" } };
-    expect(validateConfig(validConfig)).toBe(true);
   });
 });
 
 describe("Link Index - Edge Cases", () => {
-  test("should handle empty YAML content", () => {
-    const config = parseYaml("");
-    expect(config.profile.name).toBe("");
-    expect(config.profile.bio).toBe("");
+  test("should throw on empty YAML content", () => {
+    expect(() => parseConfig("")).toThrow();
   });
 
-  test("should handle YAML with only comments", () => {
+  test("should throw on YAML with only comments", () => {
     const yamlContent = `
 # This is just a comment
 # Another comment
-# No actual content
 `;
-    const config = parseYaml(yamlContent);
-    expect(config.profile.name).toBe("");
-    expect(config.profile.bio).toBe("");
-  });
-
-  test("should handle malformed YAML gracefully", () => {
-    const yamlContent = `
-profile:
-  name: "Test"
-  bio: "Test Bio"
-social:
-  invalid line without colon
-  linkedin: "https://linkedin.com/test"
-`;
-    const config = parseYaml(yamlContent);
-    expect(config.profile.name).toBe("Test");
-    expect(config.social?.linkedin).toBe("https://linkedin.com/test");
+    expect(() => parseConfig(yamlContent)).toThrow();
   });
 
   test("should handle URLs with special characters", () => {
     const yamlContent = `
+profile:
+  name: "Test"
+  bio: "Bio"
 social:
   email: "mailto:test+tag@example.com?subject=Hello%20World"
   website: "https://example.com/path?param=value&other=true"
 `;
-    const config = parseYaml(yamlContent);
+    const config = parseConfig(yamlContent);
     expect(config.social?.email).toBe("mailto:test+tag@example.com?subject=Hello%20World");
     expect(config.social?.website).toBe("https://example.com/path?param=value&other=true");
   });
+
+  test("should filter empty social links", () => {
+    const yamlContent = `
+profile:
+  name: "Test"
+  bio: "Bio"
+
+social:
+  linkedin: "https://linkedin.com/in/test"
+  twitter: ""
+  github: "https://github.com/test"
+`;
+
+    const config = parseConfig(yamlContent);
+
+    // Empty strings should be preserved in config but filtered during HTML generation
+    expect(config.social?.linkedin).toBe("https://linkedin.com/in/test");
+    expect(config.social?.github).toBe("https://github.com/test");
+    expect(config.social?.twitter).toBe("");
+  });
 });
 
-describe("Link Index - HTML Output Structure", () => {
-  test("should generate valid HTML structure", () => {
-    const config = {
-      profile: { name: "Test User", bio: "Test Bio" },
-      social: { linkedin: "https://linkedin.com/test" },
-      links: { Portfolio: "https://portfolio.test" }
+describe("Link Index - Theme Presets", () => {
+  test("should use mocha as default theme", () => {
+    const config: Config = {
+      profile: { name: "Test", bio: "Test Bio", type: "person" }
     };
 
-    // Test would require extracting HTML generation function
-    // For now, verify the structure components
-    expect(config.profile.name).toBe("Test User");
-    expect(config.social.linkedin).toBe("https://linkedin.com/test");
-    expect(config.links["Portfolio"]).toBe("https://portfolio.test");
+    const html = generateIndexHtml(config);
+
+    // Mocha is the darkest theme
+    expect(html).toContain("#1e1e2e"); // Mocha base color
   });
 
-  test("should include FontAwesome CSS", () => {
-    // This would test the full HTML generation
-    const expectedCSS = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css";
-    expect(expectedCSS).toContain("font-awesome");
-  });
+  test("should apply all Catppuccin presets", () => {
+    const presets = ["mocha", "macchiato", "frappe", "latte"] as const;
+    const expectedBases = ["#1e1e2e", "#24273a", "#303446", "#eff1f5"];
 
-  test("should include proper meta tags", () => {
-    const expectedMeta = [
-      'charset="UTF-8"',
-      'name="viewport"',
-      'content="width=device-width, initial-scale=1.0"'
-    ];
-    expectedMeta.forEach(meta => {
-      expect(meta).toContain("=");
+    presets.forEach((preset, index) => {
+      const config: Config = {
+        profile: { name: "Test", bio: "Test Bio", type: "person" },
+        theme: { preset, buttonStyle: "glass", background: "gradient" }
+      };
+
+      const html = generateIndexHtml(config);
+      expect(html).toContain(expectedBases[index]);
     });
   });
 });
