@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+/* Accessibility: Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Modern viewport and smooth scrolling */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900;
+    min-height: 100dvh;
+  }
+
+  /* Enhanced focus states for accessibility */
+  :focus-visible {
+    outline: 2px solid var(--color-primary, #cba6f7);
+    outline-offset: 2px;
+  }
+
+  /* Skip link for keyboard users */
+  .skip-link {
+    @apply absolute left-4 z-50 px-4 py-2 rounded-lg font-medium;
+    top: -100%;
+    background: var(--color-primary, #cba6f7);
+    color: var(--color-surface, #1e1e2e);
+    transition: top 0.2s ease-in-out;
+  }
+
+  .skip-link:focus {
+    top: 1rem;
+  }
+}
+
+@layer components {
+  .glass-effect {
+    @apply bg-white/10 backdrop-blur-md border border-white/20;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent;
+  }
+
+  /* Performance: will-change hints for animations */
+  .animate-float,
+  .animate-float-delayed {
+    will-change: transform;
+  }
+
+  /* Smooth interactions with cubic-bezier easing */
+  .custom-link {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Active (pressed) state for links */
+  .custom-link:active {
+    transform: scale(0.98);
+  }
+
+  .social-link:active {
+    transform: scale(0.95);
+  }
+}

@@ -1,0 +1,33 @@
+# Example Dockerfile for users who want to customize their DSLF instance
+# This uses the pre-built builder image for fast builds
+#
+# Usage:
+#   1. Copy this file to your project as 'Dockerfile'
+#   2. Create your redirects.csv and optionally link-index.yaml
+#   3. Run: docker build -t my-dslf .
+#   4. Run: docker run -p 3000:3000 my-dslf
+
+# =============================================================================
+# Stage 1: Build static assets using pre-built builder image
+# =============================================================================
+FROM vpetersson/dslf:builder AS static
+
+# Copy your configuration files
+# - redirects.csv: Required - your short link redirects
+# - link-index.yaml: Optional - enables the LinkTree-style landing page
+COPY redirects.csv ./
+COPY link-index.yaml ./
+
+# Build static assets (CSS, HTML, sitemap, robots.txt)
+RUN bun run build
+
+# =============================================================================
+# Stage 2: Create minimal runtime image
+# =============================================================================
+FROM vpetersson/dslf:latest
+
+# Copy your custom static assets (overrides defaults)
+COPY --from=static /static/dist /app/static
+
+# Copy your redirects configuration
+COPY --from=static /static/redirects.csv /app/
