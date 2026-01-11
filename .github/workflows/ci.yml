@@ -126,10 +126,11 @@ jobs:
           username: vpetersson
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and conditionally push Docker images
+      - name: Build and conditionally push Docker images (runtime)
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: Dockerfile
           # Multi-platform for push, single platform for testing
           platforms: ${{ github.event_name == 'push' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
           push: ${{ github.event_name == 'push' }}
@@ -142,6 +143,22 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/dslf:${{ steps.meta.outputs.version_tag }}
             vpetersson/dslf:${{ github.sha }}
             ghcr.io/${{ github.repository_owner }}/dslf:${{ github.sha }}
+
+      - name: Build and push Docker builder image
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.builder
+          platforms: linux/amd64,linux/arm64
+          push: true
+          cache-from: type=gha,scope=builder
+          cache-to: type=gha,mode=max,scope=builder
+          tags: |
+            vpetersson/dslf:builder
+            vpetersson/dslf:builder-${{ steps.meta.outputs.version_tag }}
+            ghcr.io/${{ github.repository_owner }}/dslf:builder
+            ghcr.io/${{ github.repository_owner }}/dslf:builder-${{ steps.meta.outputs.version_tag }}
 
       - name: Test Docker container
         if: github.event_name != 'push'

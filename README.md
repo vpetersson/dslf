@@ -135,12 +135,44 @@ footer:
 
 ### Docker
 
-**Build arguments:**
+Three deployment options depending on your needs:
 
-| Argument         | Default           | Description             |
-| ---------------- | ----------------- | ----------------------- |
-| `REDIRECTS_FILE` | `redirects.csv`   | Path to redirects CSV   |
-| `LINKTREE_FILE`  | `link-index.yaml` | Path to LinkTree config |
+#### Option 1: Redirects Only (Simplest)
+
+If you only need link redirects (no custom landing page):
+
+```bash
+docker run -p 3000:3000 \
+  -v $(pwd)/redirects.csv:/app/redirects.csv \
+  vpetersson/dslf:latest
+```
+
+#### Option 2: Custom Landing Page (Recommended)
+
+Use the pre-built builder image for fast builds with your custom config:
+
+```dockerfile
+# Dockerfile
+FROM vpetersson/dslf:builder AS static
+COPY redirects.csv ./
+COPY link-index.yaml ./
+RUN bun run build
+
+FROM vpetersson/dslf:latest
+COPY --from=static /static/dist /app/static
+COPY --from=static /static/redirects.csv /app/
+```
+
+```bash
+docker build -t my-dslf .
+docker run -p 3000:3000 my-dslf
+```
+
+> See [`Dockerfile.user-example`](Dockerfile.user-example) for a complete template.
+
+#### Option 3: Full Build from Source
+
+Build everything from scratch (slower, but complete control):
 
 ```bash
 # Build with defaults
@@ -150,20 +182,17 @@ docker build -t dslf .
 docker build -t dslf \
   --build-arg REDIRECTS_FILE=my-links.csv \
   --build-arg LINKTREE_FILE=my-profile.yaml .
-
-# Run
-docker run -p 3000:3000 dslf
 ```
 
-**Using pre-built images:**
+**Available images:**
 
-```bash
-# Docker Hub
-docker run -p 3000:3000 -v $(pwd)/redirects.csv:/app/redirects.csv vpetersson/dslf
-
-# GitHub Container Registry
-docker run -p 3000:3000 -v $(pwd)/redirects.csv:/app/redirects.csv ghcr.io/vpetersson/dslf
-```
+| Image                            | Description                                     |
+| -------------------------------- | ----------------------------------------------- |
+| `vpetersson/dslf:latest`         | Runtime image with default assets               |
+| `vpetersson/dslf:builder`        | Builder image with Bun + deps for custom builds |
+| `vpetersson/dslf:v1.2.0`         | Specific version (runtime)                      |
+| `vpetersson/dslf:builder-v1.2.0` | Specific version (builder)                      |
+| `ghcr.io/vpetersson/dslf:*`      | Same tags on GitHub Container Registry          |
 
 ### Docker Compose
 
