@@ -1,5 +1,7 @@
 # DSLF - Damn Small Link Forwarder
 
+[![sbomified](https://sbomify.com/assets/images/logo/badge.svg)](https://app.sbomify.com/public/component/Tp1KWwHmzC1i)
+
 A blazing fast, self-hosted alternative to bit.ly and similar link shortening services. Built with Rust for maximum performance and minimal resource usage.
 
 ## Why DSLF?
