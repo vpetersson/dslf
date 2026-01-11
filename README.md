@@ -110,6 +110,9 @@ theme:
   preset: "mocha" # mocha | macchiato | frappe | latte (Catppuccin)
   buttonStyle: "glass" # glass | solid | outline
 
+seo:
+  site_url: "https://yourdomain.com" # enables sitemap.xml generation
+
 social:
   github: "https://github.com/yourusername"
   linkedin: "https://linkedin.com/in/yourusername"
@@ -130,6 +133,8 @@ footer:
 **Supported social platforms:** LinkedIn, GitHub, GitLab, Twitter/X, Instagram, YouTube, TikTok, Discord, Telegram, Mastodon, Bluesky, and [more](templates/index-utils.ts).
 
 **Theme:** Uses [Catppuccin](https://catppuccin.com/) color palette with 4 flavors (Mocha, Macchiato, Frappé, Latte).
+
+**SEO:** Set `seo.site_url` to generate `sitemap.xml` and include it in `robots.txt`. Both files are auto-generated during build.
 
 ## Deployment
 
