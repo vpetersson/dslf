@@ -45,6 +45,7 @@ export const socialIcons: Record<string, string> = {
 
 /**
  * Generate HTML for a social media link button
+ * Touch targets are 56px (14 * 4) to meet accessibility guidelines (44px+ minimum)
  */
 export function generateSocialLink(platform: string, url: string): string {
   const icon = socialIcons[platform.toLowerCase()] ?? "fas fa-link";
@@ -52,7 +53,7 @@ export function generateSocialLink(platform: string, url: string): string {
 
   return `
     <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"
-       class="social-link group flex items-center justify-center w-12 h-12 rounded-full transition-all duration-300 hover:scale-110"
+       class="social-link group flex items-center justify-center w-14 h-14 min-h-[48px] rounded-full transition-all duration-300 hover:scale-110"
        aria-label="${platformName} profile">
       <i class="${icon} text-xl" aria-hidden="true"></i>
       <span class="sr-only">${platformName}</span>
@@ -62,13 +63,14 @@ export function generateSocialLink(platform: string, url: string): string {
 
 /**
  * Generate HTML for a custom link card
+ * Padding increased to p-5 for larger touch targets on mobile
  */
 export function generateCustomLink(link: LinkConfig): string {
   const icon = link.icon ?? "fas fa-external-link-alt";
 
   return `
     <a href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer"
-       class="custom-link block w-full p-4 rounded-xl transition-all duration-300 hover:scale-[1.02] group ${link.highlight ? "ring-2 ring-offset-2 ring-offset-transparent" : ""}"
+       class="custom-link block w-full p-5 min-h-[48px] rounded-xl transition-all duration-300 hover:scale-[1.02] group ${link.highlight ? "ring-2 ring-offset-2 ring-offset-transparent" : ""}"
        style="${link.highlight ? "ring-color: var(--color-primary);" : ""}"
        aria-label="${escapeHtml(link.title)} - Opens in new tab">
       <div class="flex items-center justify-between">
@@ -101,15 +103,14 @@ function escapeHtml(text: string): string {
 
 /**
  * Generate floating particles animation HTML
+ * Reduced from 4 to 2 particles with lower opacity (0.1-0.15) for subtlety
  */
 function generateParticles(isLight: boolean): string {
-  const opacity = isLight ? "0.15" : "0.3";
+  const opacity = isLight ? "0.08" : "0.12";
   return `
     <div class="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
       <div class="absolute top-1/4 left-1/4 w-2 h-2 rounded-full animate-float" style="background: var(--color-primary); opacity: ${opacity};"></div>
-      <div class="absolute top-1/3 right-1/4 w-3 h-3 rounded-full animate-float-delayed" style="background: var(--color-secondary); opacity: ${opacity};"></div>
-      <div class="absolute bottom-1/4 left-1/3 w-1 h-1 rounded-full animate-float" style="background: var(--color-primary); opacity: ${opacity};"></div>
-      <div class="absolute bottom-1/3 right-1/3 w-2 h-2 rounded-full animate-float-delayed" style="background: var(--color-secondary); opacity: ${opacity};"></div>
+      <div class="absolute bottom-1/3 right-1/4 w-3 h-3 rounded-full animate-float-delayed" style="background: var(--color-secondary); opacity: ${opacity};"></div>
     </div>
   `;
 }
@@ -154,6 +155,8 @@ export function generateIndexHtml(config: Config): string {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="${isLight ? "light" : "dark"}">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
 
     <!-- Primary Meta Tags -->
     <title>${escapeHtml(config.profile.name)} | Links</title>
@@ -188,34 +191,46 @@ export function generateIndexHtml(config: Config): string {
     <style>
       ${themeCSS}
 
-      /* Animations */
+      /* Reduced motion support */
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+
+      /* Animations - slowed down for subtlety */
       @keyframes fadeInUp {
         from { opacity: 0; transform: translateY(30px); }
         to { opacity: 1; transform: translateY(0); }
       }
       @keyframes float {
         0%, 100% { transform: translateY(0px) rotate(0deg); }
-        50% { transform: translateY(-20px) rotate(180deg); }
+        50% { transform: translateY(-15px) rotate(180deg); }
       }
       @keyframes float-delayed {
         0%, 100% { transform: translateY(0px) rotate(0deg); }
-        50% { transform: translateY(-30px) rotate(-180deg); }
+        50% { transform: translateY(-20px) rotate(-180deg); }
       }
 
       .animate-fade-in-up { animation: fadeInUp 0.6s ease-out forwards; }
       .animate-delay-100 { animation-delay: 0.1s; opacity: 0; }
       .animate-delay-200 { animation-delay: 0.2s; opacity: 0; }
       .animate-delay-300 { animation-delay: 0.3s; opacity: 0; }
-      .animate-float { animation: float 6s ease-in-out infinite; }
-      .animate-float-delayed { animation: float-delayed 8s ease-in-out infinite; }
+      .animate-float { animation: float 12s ease-in-out infinite; will-change: transform; }
+      .animate-float-delayed { animation: float-delayed 12s ease-in-out infinite; will-change: transform; }
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
-    <main class="w-full max-w-md mx-auto" role="main">
+    <!-- Skip link for keyboard accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <main id="main-content" class="w-full max-w-md mx-auto" role="main">
         <!-- Profile Section -->
         <header class="text-center mb-8 animate-fade-in-up">
-            ${config.profile.avatar ? `<img src="${escapeHtml(config.profile.avatar)}" alt="${escapeHtml(config.profile.name)}" class="w-24 h-24 rounded-full mx-auto mb-4 border-2" style="border-color: var(--color-overlay);">` : ""}
-            <h1 class="text-2xl font-bold mb-2">${escapeHtml(config.profile.name)}</h1>
+            ${config.profile.avatar ? `<img src="${escapeHtml(config.profile.avatar)}" alt="${escapeHtml(config.profile.name)}" class="avatar-img w-24 h-24 rounded-full mx-auto mb-4 border-2" style="border-color: var(--color-overlay);">` : ""}
+            <h1 class="font-bold mb-2">${escapeHtml(config.profile.name)}</h1>
             <p class="text-lg leading-relaxed text-muted">${escapeHtml(config.profile.bio)}</p>
         </header>
 

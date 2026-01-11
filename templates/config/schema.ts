@@ -48,11 +48,22 @@ export const FooterSchema = z
   })
   .optional();
 
+// SEO configuration schema
+export const SeoSchema = z
+  .object({
+    site_url: z
+      .string()
+      .url("Site URL must be a valid URL (e.g., https://example.com)")
+      .optional()
+  })
+  .optional();
+
 // Main configuration schema
 // Note: Zod v4 requires both key and value schemas for z.record()
 export const ConfigSchema = z.object({
   profile: ProfileSchema,
   theme: ThemeSchema,
+  seo: SeoSchema,
   social: z.record(z.string(), z.string()).optional(),
   // Support both array of LinkSchema and simple Record<string, string>
   links: z
@@ -79,4 +90,5 @@ export type ThemeConfig = z.infer<typeof ThemeSchema>;
 export type ProfileConfig = z.infer<typeof ProfileSchema>;
 export type LinkConfig = z.infer<typeof LinkSchema>;
 export type FooterConfig = z.infer<typeof FooterSchema>;
+export type SeoConfig = z.infer<typeof SeoSchema>;
 export type Config = z.infer<typeof ConfigSchema>;

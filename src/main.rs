@@ -4,16 +4,19 @@ use axum::{
     extract::Path,
     http::{Request, StatusCode, header},
     middleware::{self, Next},
-    response::Response,
+    response::{IntoResponse, Response},
     routing::get,
 };
 use clap::{Parser, Subcommand};
 use serde::Deserialize;
 use std::{
     collections::HashMap,
+    path::PathBuf,
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 use tokio::net::TcpListener;
+use tower::service_fn;
+use tower_http::services::ServeDir;
 
 mod import;
 
@@ -22,27 +25,56 @@ type AppState = (HashMap<String, (String, u16)>, bool);
 async fn logging_middleware(request: Request<Body>, next: Next) -> Response {
     let method = request.method().clone();
     let uri = request.uri().clone();
+    let path = uri.path();
     let start = Instant::now();
+
+    // Skip logging for favicon.ico requests (reduces noise in logs)
+    let should_log = path != "/favicon.ico";
+
+    // Extract client IP from proxy headers (in order of preference)
+    // 1. CF-Connecting-IP (Cloudflare)
+    // 2. X-Real-IP (nginx)
+    // 3. X-Forwarded-For (first IP in chain)
+    // 4. Fall back to "-" if none available
+    let client_ip = if should_log {
+        request
+            .headers()
+            .get("cf-connecting-ip")
+            .or_else(|| request.headers().get("x-real-ip"))
+            .or_else(|| request.headers().get("x-forwarded-for"))
+            .and_then(|v| v.to_str().ok())
+            .map(|s| {
+                // X-Forwarded-For can contain multiple IPs, take the first one
+                s.split(',').next().unwrap_or(s).trim()
+            })
+            .unwrap_or("-")
+            .to_string()
+    } else {
+        String::new()
+    };
 
     let response = next.run(request).await;
 
-    let duration = start.elapsed();
-    let status = response.status();
+    if should_log {
+        let duration = start.elapsed();
+        let status = response.status();
 
-    // Simple timestamp - seconds since epoch for consistency across platforms
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
+        // Simple timestamp - seconds since epoch for consistency across platforms
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
 
-    println!(
-        "{} {} {} {} {:.2}ms",
-        timestamp,
-        method,
-        uri.path_and_query().map_or(uri.path(), |pq| pq.as_str()),
-        status.as_u16(),
-        duration.as_secs_f64() * 1000.0
-    );
+        println!(
+            "{} {} {} {} {} {:.2}ms",
+            timestamp,
+            client_ip,
+            method,
+            uri.path_and_query().map_or(uri.path(), |pq| pq.as_str()),
+            status.as_u16(),
+            duration.as_secs_f64() * 1000.0
+        );
+    }
 
     response
 }
@@ -88,6 +120,10 @@ struct Cli {
     /// Disable request logging to stdout
     #[arg(short, long)]
     silent: bool,
+
+    /// Directory to serve static files from (index.html, 404.html, etc.)
+    #[arg(long, env = "STATIC_DIR")]
+    static_dir: Option<PathBuf>,
 }
 
 #[derive(Subcommand)]
@@ -105,11 +141,53 @@ enum Commands {
     },
 }
 
-fn create_app(rules: HashMap<String, (String, u16)>, modern: bool, enable_logging: bool) -> Router {
-    let state: AppState = (rules, modern);
-    let mut app = Router::new()
-        .route("/{*path}", get(handle_redirect))
-        .with_state(state);
+fn create_app(
+    rules: HashMap<String, (String, u16)>,
+    modern: bool,
+    enable_logging: bool,
+    static_dir: Option<PathBuf>,
+) -> Router {
+    let state: AppState = (rules.clone(), modern);
+
+    let mut app = if let Some(dir) = static_dir {
+        // Build redirect router for fallback
+        let redirect_router: Router = Router::new()
+            .route("/{*path}", get(handle_redirect))
+            .with_state(state.clone());
+
+        // Serve static files with fallback to redirects
+        let serve_dir = ServeDir::new(&dir)
+            .append_index_html_on_directories(true)
+            .fallback(redirect_router);
+
+        // Path to custom 404 page
+        let not_found_path = dir.join("404.html");
+
+        // ServeDir handles index.html for directories and falls back to redirects
+        // The not_found_service is called when neither static file nor redirect matches
+        Router::new().fallback_service(
+            serve_dir.not_found_service(service_fn(move |_req: Request<Body>| {
+                let path = not_found_path.clone();
+                async move {
+                    if let Ok(content) = tokio::fs::read_to_string(&path).await {
+                        Ok((
+                            StatusCode::NOT_FOUND,
+                            [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
+                            content,
+                        )
+                            .into_response())
+                    } else {
+                        Ok((StatusCode::NOT_FOUND, "Not Found").into_response())
+                    }
+                }
+            })),
+        )
+    } else {
+        // No static directory, only serve redirects
+        Router::new()
+            .route("/{*path}", get(handle_redirect))
+            .with_state(state)
+    };
 
     if enable_logging {
         app = app.layer(middleware::from_fn(logging_middleware));
@@ -196,7 +274,7 @@ async fn main() {
         return;
     }
 
-    let app = create_app(rules, cli.modern, !cli.silent);
+    let app = create_app(rules, cli.modern, !cli.silent, cli.static_dir);
 
     let bind_addr = format!("{bind}:{port}", bind = cli.bind, port = cli.port);
     let listener = TcpListener::bind(&bind_addr)
@@ -464,7 +542,7 @@ mod tests {
         let rules = load_redirect_rules(temp_file.path().to_str().unwrap()).unwrap();
 
         // Create the app using the new function
-        let app = create_app(rules, false, false);
+        let app = create_app(rules, false, false, None);
 
         // Test redirect for /test
         let request = axum::http::Request::builder()
@@ -508,7 +586,7 @@ mod tests {
             ("https://example.com".to_string(), 301),
         );
 
-        let app = create_app(rules, false, false);
+        let app = create_app(rules, false, false, None);
 
         // We can't test much about the router without running it,
         // but we can verify it was created successfully
@@ -591,7 +669,7 @@ mod tests {
     #[test]
     fn test_empty_hashmap() {
         let rules = HashMap::new();
-        let app = create_app(rules, false, false);
+        let app = create_app(rules, false, false, None);
         assert!(format!("{app:?}").contains("Router"));
     }
 
@@ -604,11 +682,11 @@ mod tests {
         );
 
         // Test app with logging enabled
-        let app_with_logging = create_app(rules.clone(), false, true);
+        let app_with_logging = create_app(rules.clone(), false, true, None);
         assert!(format!("{app_with_logging:?}").contains("Router"));
 
         // Test app without logging
-        let app_without_logging = create_app(rules, false, false);
+        let app_without_logging = create_app(rules, false, false, None);
         assert!(format!("{app_without_logging:?}").contains("Router"));
     }
 
@@ -902,7 +980,7 @@ mod tests {
         let rules = load_redirect_rules(temp_file.path().to_str().unwrap()).unwrap();
 
         // Test classic redirect codes (default behavior)
-        let app_classic = create_app(rules.clone(), false, false);
+        let app_classic = create_app(rules.clone(), false, false, None);
 
         // Test 301 -> MOVED_PERMANENTLY (301)
         let request = axum::http::Request::builder()
@@ -933,7 +1011,7 @@ mod tests {
         );
 
         // Test modern redirect codes (with --modern flag)
-        let app_modern = create_app(rules.clone(), true, false);
+        let app_modern = create_app(rules.clone(), true, false, None);
 
         // Test 301 -> PERMANENT_REDIRECT (308)
         let request = axum::http::Request::builder()

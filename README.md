@@ -234,6 +234,8 @@ Options:
   -m, --modern           Use 307/308 instead of 301/302
   -v, --validate         Validate destination URLs before starting
   -k, --check            Check config syntax (no network requests)
+  -s, --silent           Disable request logging
+      --static-dir <DIR> Serve static files from directory [env: STATIC_DIR]
   -h, --help             Show help
 
 Commands:

@@ -7,7 +7,7 @@
     "build": "bun run build:assets && bun run build:css && bun run build:html",
     "build:assets": "mkdir -p dist/css dist/webfonts dist/fonts && cp node_modules/@fortawesome/fontawesome-free/css/all.min.css dist/css/fontawesome.min.css && cp -r node_modules/@fortawesome/fontawesome-free/webfonts/* dist/webfonts/ && cat node_modules/@fontsource/inter/400.css node_modules/@fontsource/inter/500.css node_modules/@fontsource/inter/600.css node_modules/@fontsource/inter/700.css | sed 's|\\./files/|../fonts/|g' > dist/css/inter.css && cp -r node_modules/@fontsource/inter/files/* dist/fonts/",
     "build:css": "bun x tailwindcss -i ./src/styles.css -o ./dist/styles.css --minify",
-    "build:html": "bun run templates/index.ts && bun run templates/404.ts",
+    "build:html": "bun run templates/index.ts && bun run templates/404.ts && bun run templates/seo.ts",
     "dev": "bun x tailwindcss -i ./src/styles.css -o ./dist/styles.css --watch",
     "test": "bun test tests/link-index.test.ts",
     "test:coverage": "bun test --coverage tests/link-index.test.ts",

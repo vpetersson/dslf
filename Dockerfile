@@ -97,9 +97,7 @@ COPY --from=static --chown=nonroot:nonroot /static/dist /app/static
 COPY --from=static --chown=nonroot:nonroot /static/redirects.csv /app/
 
 # Configuration via environment variables
-ENV BIND_ADDRESS=0.0.0.0:3000 \
-    STATIC_DIR=/app/static \
-    REDIRECTS_FILE=/app/redirects.csv \
+ENV STATIC_DIR=/app/static \
     RUST_LOG=dslf=info
 
 EXPOSE 3000
@@ -111,4 +109,5 @@ EXPOSE 3000
 #       path: /health
 #       port: 3000
 
-ENTRYPOINT ["/app/dslf"]
+# Run with explicit config path (STATIC_DIR is picked up from env)
+ENTRYPOINT ["/app/dslf", "--config", "/app/redirects.csv"]

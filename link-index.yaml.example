@@ -13,6 +13,11 @@ theme:
   preset: "mocha" # mocha | macchiato | frappe | latte
   buttonStyle: "glass" # glass | solid | outline
 
+# SEO configuration (optional)
+# Required for sitemap.xml generation
+seo:
+  site_url: "https://example.com"
+
 # Footer settings
 footer:
   show_powered_by: true
