@@ -51,10 +51,7 @@ export const FooterSchema = z
 // SEO configuration schema
 export const SeoSchema = z
   .object({
-    site_url: z
-      .string()
-      .url("Site URL must be a valid URL (e.g., https://example.com)")
-      .optional()
+    site_url: z.string().url("Site URL must be a valid URL (e.g., https://example.com)").optional()
   })
   .optional();
 

@@ -33,9 +33,7 @@ function generateSitemap(siteUrl: string): string {
  * Generate robots.txt content
  */
 function generateRobotsTxt(siteUrl?: string): string {
-  const sitemapLine = siteUrl
-    ? `\nSitemap: ${siteUrl.replace(/\/$/, "")}/sitemap.xml`
-    : "";
+  const sitemapLine = siteUrl ? `\nSitemap: ${siteUrl.replace(/\/$/, "")}/sitemap.xml` : "";
 
   return `# robots.txt for DSLF
 User-agent: *
@@ -77,9 +75,7 @@ async function generateSeoFiles() {
       console.log("[OK] Generated dist/sitemap.xml");
       console.log(`     Site URL: ${siteUrl}`);
     } else {
-      console.log(
-        "[SKIP] sitemap.xml - No seo.site_url configured in link-index.yaml"
-      );
+      console.log("[SKIP] sitemap.xml - No seo.site_url configured in link-index.yaml");
     }
   } catch (error) {
     console.error("[FAIL] Error generating SEO files:", error);
