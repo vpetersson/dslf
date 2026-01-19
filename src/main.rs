@@ -180,19 +180,20 @@ fn create_app(
         Router::new().fallback_service(service_fn(move |req: Request<Body>| {
             let rules = rules.clone();
             let serve_dir = serve_dir.clone();
-            async move {
-                let path = req.uri().path();
 
-                // Helper to check redirects and create response
-                let redirect_if_matches = |lookup_path: &str| -> Option<Response> {
-                    rules.get(lookup_path).map(|(target, status)| {
-                        create_redirect_response(target, *status, modern)
-                            .unwrap_or_else(|e| e.into_response())
-                    })
-                };
+            // Helper to check redirects and create response
+            let redirect_if_matches = move |lookup_path: &str| -> Option<Response> {
+                rules.get(lookup_path).map(|(target, status)| {
+                    create_redirect_response(target, *status, modern)
+                        .unwrap_or_else(|e| e.into_response())
+                })
+            };
+
+            async move {
+                let path = req.uri().path().to_owned();
 
                 // Check redirects first (exact match)
-                if let Some(response) = redirect_if_matches(path) {
+                if let Some(response) = redirect_if_matches(&path) {
                     return Ok::<_, std::convert::Infallible>(response);
                 }
 
@@ -208,7 +209,7 @@ fn create_app(
                 let response = match serve_dir.oneshot(req).await {
                     Ok(res) => res.into_response(),
                     Err(err) => {
-                        eprintln!("Error serving static file: {err}");
+                        eprintln!("Error serving static file at {path}: {err}");
                         StatusCode::INTERNAL_SERVER_ERROR.into_response()
                     }
                 };
