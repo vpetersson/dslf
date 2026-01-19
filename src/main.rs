@@ -203,7 +203,11 @@ fn create_app(
                 }
 
                 // No redirect match, fall back to static files
-                Ok(serve_dir.oneshot(req).await.unwrap().into_response())
+                let response = match serve_dir.oneshot(req).await {
+                    Ok(res) => res.into_response(),
+                    Err(_err) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+                };
+                Ok(response)
             }
         }))
     } else {
