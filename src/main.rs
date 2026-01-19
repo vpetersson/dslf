@@ -15,7 +15,7 @@ use std::{
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 use tokio::net::TcpListener;
-use tower::service_fn;
+use tower::{ServiceExt, service_fn};
 use tower_http::services::ServeDir;
 
 mod import;
@@ -150,38 +150,62 @@ fn create_app(
     let state: AppState = (rules.clone(), modern);
 
     let mut app = if let Some(dir) = static_dir {
-        // Build redirect router for fallback
-        let redirect_router: Router = Router::new()
-            .route("/{*path}", get(handle_redirect))
-            .with_state(state.clone());
-
-        // Serve static files with fallback to redirects
-        let serve_dir = ServeDir::new(&dir)
-            .append_index_html_on_directories(true)
-            .fallback(redirect_router);
-
         // Path to custom 404 page
         let not_found_path = dir.join("404.html");
 
-        // ServeDir handles index.html for directories and falls back to redirects
-        // The not_found_service is called when neither static file nor redirect matches
-        Router::new().fallback_service(serve_dir.not_found_service(service_fn(
-            move |_req: Request<Body>| {
-                let path = not_found_path.clone();
-                async move {
-                    if let Ok(content) = tokio::fs::read_to_string(&path).await {
-                        Ok((
-                            StatusCode::NOT_FOUND,
-                            [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
-                            content,
-                        )
-                            .into_response())
-                    } else {
-                        Ok((StatusCode::NOT_FOUND, "Not Found").into_response())
+        // Create ServeDir for static file serving (fallback after redirect check)
+        let serve_dir = ServeDir::new(&dir)
+            .append_index_html_on_directories(true)
+            .not_found_service(service_fn({
+                let not_found_path = not_found_path.clone();
+                move |_req: Request<Body>| {
+                    let path = not_found_path.clone();
+                    async move {
+                        if let Ok(content) = tokio::fs::read_to_string(&path).await {
+                            Ok((
+                                StatusCode::NOT_FOUND,
+                                [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
+                                content,
+                            )
+                                .into_response())
+                        } else {
+                            Ok((StatusCode::NOT_FOUND, "Not Found").into_response())
+                        }
                     }
                 }
-            },
-        )))
+            }));
+
+        // Redirects first, then static files
+        // Check redirect rules before serving static files
+        Router::new().fallback_service(service_fn(move |req: Request<Body>| {
+            let rules = rules.clone();
+            let serve_dir = serve_dir.clone();
+            async move {
+                let path = req.uri().path();
+
+                // Check redirects first (exact match)
+                if let Some((target, status)) = rules.get(path) {
+                    return Ok::<_, std::convert::Infallible>(
+                        create_redirect_response(target, *status, modern)
+                            .unwrap_or_else(|e| e.into_response()),
+                    );
+                }
+
+                // Check redirects (without trailing slash)
+                let trimmed = path.trim_end_matches('/');
+                if trimmed != path
+                    && let Some((target, status)) = rules.get(trimmed)
+                {
+                    return Ok::<_, std::convert::Infallible>(
+                        create_redirect_response(target, *status, modern)
+                            .unwrap_or_else(|e| e.into_response()),
+                    );
+                }
+
+                // No redirect match, fall back to static files
+                Ok(serve_dir.oneshot(req).await.unwrap().into_response())
+            }
+        }))
     } else {
         // No static directory, only serve redirects
         Router::new()
@@ -1171,5 +1195,119 @@ mod tests {
         assert_eq!(cli.port, 3000);
         assert!(!cli.modern);
         assert!(cli.silent);
+    }
+
+    #[tokio::test]
+    async fn test_integration_static_dir_with_redirects() {
+        use tempfile::TempDir;
+
+        // Create a temporary static directory with an index.html
+        let temp_dir = TempDir::new().unwrap();
+        let index_path = temp_dir.path().join("index.html");
+        std::fs::write(&index_path, "<html><body>Landing Page</body></html>").unwrap();
+
+        // Also create a 404.html
+        let not_found_path = temp_dir.path().join("404.html");
+        std::fs::write(&not_found_path, "<html><body>Not Found</body></html>").unwrap();
+
+        // Create redirect rules
+        let mut rules = HashMap::new();
+        rules.insert(
+            "/gh".to_string(),
+            ("https://github.com/test".to_string(), 301),
+        );
+        rules.insert(
+            "/blog".to_string(),
+            ("https://blog.example.com".to_string(), 302),
+        );
+
+        // Create the app with both static_dir and redirect rules
+        let app = create_app(rules, false, false, Some(temp_dir.path().to_path_buf()));
+
+        // Test 1: Root path should serve index.html (200 OK)
+        let request = axum::http::Request::builder()
+            .uri("/")
+            .body(axum::body::Body::empty())
+            .unwrap();
+
+        let response = tower::ServiceExt::oneshot(app.clone(), request)
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            axum::http::StatusCode::OK,
+            "Root path should serve index.html"
+        );
+
+        // Test 2: /gh should redirect (301)
+        let request = axum::http::Request::builder()
+            .uri("/gh")
+            .body(axum::body::Body::empty())
+            .unwrap();
+
+        let response = tower::ServiceExt::oneshot(app.clone(), request)
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            axum::http::StatusCode::MOVED_PERMANENTLY,
+            "/gh should redirect with 301"
+        );
+        assert_eq!(
+            response.headers().get("location").unwrap(),
+            "https://github.com/test"
+        );
+
+        // Test 3: /blog should redirect (302)
+        let request = axum::http::Request::builder()
+            .uri("/blog")
+            .body(axum::body::Body::empty())
+            .unwrap();
+
+        let response = tower::ServiceExt::oneshot(app.clone(), request)
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            axum::http::StatusCode::FOUND,
+            "/blog should redirect with 302"
+        );
+        assert_eq!(
+            response.headers().get("location").unwrap(),
+            "https://blog.example.com"
+        );
+
+        // Test 4: Unknown path should return 404
+        let request = axum::http::Request::builder()
+            .uri("/unknown")
+            .body(axum::body::Body::empty())
+            .unwrap();
+
+        let response = tower::ServiceExt::oneshot(app.clone(), request)
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            axum::http::StatusCode::NOT_FOUND,
+            "/unknown should return 404"
+        );
+
+        // Test 5: Static file (styles.css) should be served when not a redirect
+        let styles_path = temp_dir.path().join("styles.css");
+        std::fs::write(&styles_path, "body { color: red; }").unwrap();
+
+        let request = axum::http::Request::builder()
+            .uri("/styles.css")
+            .body(axum::body::Body::empty())
+            .unwrap();
+
+        let response = tower::ServiceExt::oneshot(app.clone(), request)
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            axum::http::StatusCode::OK,
+            "/styles.css should serve the static file"
+        );
     }
 }
