@@ -183,29 +183,34 @@ fn create_app(
             async move {
                 let path = req.uri().path();
 
-                // Check redirects first (exact match)
-                if let Some((target, status)) = rules.get(path) {
-                    return Ok::<_, std::convert::Infallible>(
+                // Helper to check redirects and create response
+                let redirect_if_matches = |lookup_path: &str| -> Option<Response> {
+                    rules.get(lookup_path).map(|(target, status)| {
                         create_redirect_response(target, *status, modern)
-                            .unwrap_or_else(|e| e.into_response()),
-                    );
+                            .unwrap_or_else(|e| e.into_response())
+                    })
+                };
+
+                // Check redirects first (exact match)
+                if let Some(response) = redirect_if_matches(path) {
+                    return Ok::<_, std::convert::Infallible>(response);
                 }
 
                 // Check redirects (without trailing slash)
                 let trimmed = path.trim_end_matches('/');
                 if trimmed != path
-                    && let Some((target, status)) = rules.get(trimmed)
+                    && let Some(response) = redirect_if_matches(trimmed)
                 {
-                    return Ok::<_, std::convert::Infallible>(
-                        create_redirect_response(target, *status, modern)
-                            .unwrap_or_else(|e| e.into_response()),
-                    );
+                    return Ok::<_, std::convert::Infallible>(response);
                 }
 
                 // No redirect match, fall back to static files
                 let response = match serve_dir.oneshot(req).await {
                     Ok(res) => res.into_response(),
-                    Err(_err) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+                    Err(err) => {
+                        eprintln!("Error serving static file: {err}");
+                        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+                    }
                 };
                 Ok(response)
             }
