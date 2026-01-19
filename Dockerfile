@@ -4,11 +4,13 @@
 # Build arguments:
 #   REDIRECTS_FILE - Path to redirects CSV file (default: redirects.csv)
 #   LINKTREE_FILE  - Path to link-index YAML file (default: link-index.yaml, optional)
+#   CARGO_JOBS     - Number of parallel cargo jobs (default: empty = use all cores)
 #
 # Examples:
 #   docker build -t dslf .
 #   docker build -t dslf --build-arg REDIRECTS_FILE=my-links.csv .
 #   docker build -t dslf --build-arg LINKTREE_FILE=my-profile.yaml .
+#   docker build -t dslf --build-arg CARGO_JOBS=2 .  # Limit parallelism for constrained environments
 
 # =============================================================================
 # Stage 1: Build static assets (CSS, HTML) with Bun
@@ -64,6 +66,9 @@ RUN bun run build
 # =============================================================================
 FROM cgr.dev/chainguard/rust:latest-dev AS build
 
+# Build argument for parallel jobs (empty = use all cores)
+ARG CARGO_JOBS
+
 # Create build directory with correct ownership for nonroot user
 USER root
 RUN mkdir -p /build && chown nonroot:nonroot /build
@@ -77,8 +82,8 @@ COPY --chown=nonroot:nonroot Cargo.toml Cargo.lock ./
 # Copy source code
 COPY --chown=nonroot:nonroot src ./src
 
-# Build release binary (limit jobs for constrained environments)
-RUN cargo build --release --locked -j 2
+# Build release binary
+RUN cargo build --release --locked ${CARGO_JOBS:+-j $CARGO_JOBS}
 
 # =============================================================================
 # Stage 3: Runtime image (minimal, secure)
