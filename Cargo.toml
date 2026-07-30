@@ -2,6 +2,9 @@
 name = "dslf"
 version = "1.2.1"
 edition = "2024"
+description = "Damn Small Link Forwarder: a tiny self-hosted link shortener and forwarder."
+repository = "https://github.com/vpetersson/dslf"
+license = "Apache-2.0"
 
 [dependencies]
 axum = "0.8.4"
