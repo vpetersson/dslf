@@ -1,0 +1,95 @@
+# Dependabot configuration.
+#
+# Four ecosystems live in this repo: the Rust service itself, the Bun toolchain
+# that builds the static assets, the Docker images it ships in, and the actions
+# that run CI. Each is grouped so a quiet week is one reviewable PR per
+# ecosystem rather than a dozen.
+version: 2
+
+updates:
+  # The service. cargo reads Cargo.toml and keeps Cargo.lock in step, which
+  # matters here because sbom.yml generates the SBOM straight from the lockfile:
+  # a bumped manifest with a stale lock would publish an SBOM describing
+  # versions that were never built.
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/London"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "rust"
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      cargo:
+        patterns:
+          - "*"
+
+  # "bun", not "npm": this repo carries bun.lock and no package-lock.json, and
+  # the npm ecosystem cannot read a Bun lockfile.
+  - package-ecosystem: "bun"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/London"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(dev-deps)"
+    groups:
+      bun:
+        patterns:
+          - "*"
+
+  # Base images. Note this raises nothing today: every FROM in the Dockerfiles
+  # tracks a moving tag (chainguard :latest and :latest-dev), and Dependabot has
+  # no version to move. It is configured so that pinning those to digests or
+  # released tags starts producing updates without further setup.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/London"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore(docker)"
+    groups:
+      docker:
+        patterns:
+          - "*"
+
+  # CI uses actions/* (GitHub), oven-sh/setup-bun (Bun's own), docker/* (Docker's
+  # own) and sbomify/github-action (sbomify's own), so every one is either
+  # first-party or published by the vendor of the tool it wraps. Read the
+  # changelog before merging a bump: first-party status lowers the risk, it does
+  # not remove the review.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/London"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      github-actions:
+        patterns:
+          - "*"

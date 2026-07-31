@@ -10,8 +10,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Pinned to a release rather than @master. A moving branch means whatever
+      # is on it at the time runs here with SBOMIFY_TOKEN in the environment,
+      # and Dependabot cannot watch a branch either, so the action was the one
+      # dependency nothing could review. v26.7.0 is the current release.
       - name: Upload SBOM
-        uses: sbomify/github-action@master
+        uses: sbomify/github-action@v26.7.0
         env:
           TOKEN: ${{ secrets.SBOMIFY_TOKEN }}
           COMPONENT_ID: "Tp1KWwHmzC1i"

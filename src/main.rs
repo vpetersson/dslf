@@ -355,11 +355,19 @@ fn create_redirect_response(
         _ => return Err(StatusCode::INTERNAL_SERVER_ERROR),
     };
 
-    Ok(Response::builder()
+    // Not unwrap: a target that is not a legal header value makes the builder
+    // return Err here, and unwrapping turned one bad row into a panicking
+    // request handler. Targets are checked at load time now, so reaching this
+    // means something got past that; answer 500 and stay up rather than abort
+    // the task and drop the connection with no explanation.
+    Response::builder()
         .status(actual_status)
         .header(header::LOCATION, target)
         .body(axum::body::Body::empty())
-        .unwrap())
+        .map_err(|e| {
+            eprintln!("Cannot build redirect to {target:?}: {e}");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })
 }
 
 fn load_redirect_rules(
@@ -387,6 +395,25 @@ fn load_redirect_rules(
             return Err(format!(
                 "Invalid status code: {status}. Must be 301 or 302",
                 status = rule.status
+            )
+            .into());
+        }
+
+        // Validate the target as a header value, here rather than per request.
+        // A control character or a newline cannot be encoded into Location, and
+        // the failure used to surface one request at a time, long after the file
+        // was read, as a panic in the handler. Targets can arrive from
+        // `dslf import`, which reads them from a third-party API, so this is not
+        // only about hand-edited files. An empty target is rejected too: it
+        // builds a `Location:` with nothing after it, which is not a redirect.
+        if rule.target.trim().is_empty() {
+            return Err(format!("Empty target for {url}", url = rule.url).into());
+        }
+        if header::HeaderValue::from_str(&rule.target).is_err() {
+            return Err(format!(
+                "Invalid target for {url}: {target:?}. A target cannot contain newlines or control characters.",
+                url = rule.url,
+                target = rule.target
             )
             .into());
         }
@@ -422,6 +449,60 @@ mod tests {
         assert_eq!(
             rules.get("/temp"),
             Some(&("https://example.com/temp".to_string(), 302))
+        );
+    }
+
+    #[test]
+    fn test_target_with_control_character_is_rejected_at_load() {
+        // A target that cannot be encoded as a header value used to load fine
+        // and then panic inside the request handler, one request at a time.
+        // Catch it while the row is still in hand.
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(temp_file, "url,target,status").unwrap();
+        writeln!(temp_file, "/bad,https://example.com/\u{7}bell,301").unwrap();
+
+        let err = load_redirect_rules(temp_file.path().to_str().unwrap())
+            .expect_err("a control character in the target must be rejected");
+        assert!(err.to_string().contains("Invalid target"), "got: {err}");
+    }
+
+    #[test]
+    fn test_empty_target_is_rejected() {
+        // An empty target builds `Location:` with nothing after it, which is
+        // not a redirect any browser can follow.
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(temp_file, "url,target,status").unwrap();
+        writeln!(temp_file, "/empty,,301").unwrap();
+
+        let err = load_redirect_rules(temp_file.path().to_str().unwrap())
+            .expect_err("an empty target must be rejected");
+        assert!(err.to_string().contains("Empty target"), "got: {err}");
+    }
+
+    #[test]
+    fn test_ordinary_targets_still_load() {
+        // The validation must not reject anything legitimate: query strings,
+        // fragments, ports, unicode paths and relative targets all stay valid.
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(temp_file, "url,target,status").unwrap();
+        writeln!(temp_file, "/q,https://example.com/a?b=c&d=e,301").unwrap();
+        writeln!(temp_file, "/frag,https://example.com/page#section,301").unwrap();
+        writeln!(temp_file, "/port,https://example.com:8443/x,302").unwrap();
+        writeln!(temp_file, "/rel,/somewhere/else,301").unwrap();
+
+        let rules = load_redirect_rules(temp_file.path().to_str().unwrap()).unwrap();
+        assert_eq!(rules.len(), 4);
+    }
+
+    #[test]
+    fn test_redirect_response_does_not_panic_on_a_bad_target() {
+        // Belt and braces for the handler itself: even if something bypasses
+        // load-time validation, this returns an error rather than aborting the
+        // task and dropping the connection.
+        let result = create_redirect_response("https://example.com/\r\nX-Injected: 1", 301, false);
+        assert!(
+            result.is_err(),
+            "a bad target should be an error, not a panic"
         );
     }
 
