@@ -154,11 +154,10 @@ them.
 
 Both images are built for `linux/amd64` and `linux/arm64`.
 
-> **Moving from Docker Hub.** Images used to be published to `vpetersson/dslf`
-> on Docker Hub as well. That repository is no longer updated: the tags there
-> still resolve, so nothing breaks immediately, but they are frozen at the last
-> build before the move and will drift further behind with every release. Swap
-> `vpetersson/dslf` for `ghcr.io/vpetersson/dslf` when convenient.
+> **Docker Hub.** The same images are still pushed to `vpetersson/dslf` on
+> Docker Hub, so anything already pulling from there keeps working and stays
+> current. ghcr is the primary now and is what the rest of these docs use;
+> Docker Hub is a mirror kept for existing users.
 
 ## CLI Reference
 

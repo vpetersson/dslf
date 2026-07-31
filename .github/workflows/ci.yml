@@ -182,6 +182,15 @@ jobs:
       - name: Log in to GitHub Container Registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+      # Docker Hub is still published to, as a mirror. ghcr is what the README
+      # points at, but tags under vpetersson/dslf stay current for anyone who
+      # pulled from there before the move rather than quietly going stale.
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4.5.2
+        with:
+          username: vpetersson
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       # push-by-digest uploads the layers and returns a digest without claiming
       # any tag. The tags are attached later, once both architectures exist.
       - name: Build and push runtime image by digest
@@ -193,7 +202,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           cache-from: type=gha,scope=runtime-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=runtime-${{ matrix.arch }}
-          outputs: type=image,name=ghcr.io/${{ github.repository_owner }}/dslf,push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,"name=ghcr.io/${{ github.repository_owner }}/dslf,docker.io/vpetersson/dslf",push-by-digest=true,name-canonical=true,push=true
 
       - name: Build and push builder image by digest
         id: builder
@@ -204,7 +213,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           cache-from: type=gha,scope=builder-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=builder-${{ matrix.arch }}
-          outputs: type=image,name=ghcr.io/${{ github.repository_owner }}/dslf,push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,"name=ghcr.io/${{ github.repository_owner }}/dslf,docker.io/vpetersson/dslf",push-by-digest=true,name-canonical=true,push=true
 
       # The digest is the filename, but upload-artifact rejects ":" in paths, so
       # store the bare hash and put the "sha256:" prefix back when the manifest
@@ -251,6 +260,15 @@ jobs:
       - name: Log in to GitHub Container Registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+      # Docker Hub is still published to, as a mirror. ghcr is what the README
+      # points at, but tags under vpetersson/dslf stay current for anyone who
+      # pulled from there before the move rather than quietly going stale.
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4.5.2
+        with:
+          username: vpetersson
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Prepare Docker tags
         id: meta
         run: |
@@ -271,7 +289,7 @@ jobs:
           OWNER: ${{ github.repository_owner }}
         run: |
           set -euo pipefail
-          for repo in "ghcr.io/${OWNER}/dslf"; do
+          for repo in "ghcr.io/${OWNER}/dslf" "docker.io/vpetersson/dslf"; do
             runtime_srcs=$(printf "${repo}@sha256:%s " $(ls /tmp/digests/runtime))
             builder_srcs=$(printf "${repo}@sha256:%s " $(ls /tmp/digests/builder))
 
@@ -296,7 +314,8 @@ jobs:
           set -euo pipefail
           # A manifest list missing an architecture would still pull fine on the
           # machine that built it, so check rather than assume.
-          for tag in "ghcr.io/${OWNER}/dslf:${VERSION_TAG}" "ghcr.io/${OWNER}/dslf:builder"; do
+          for tag in "ghcr.io/${OWNER}/dslf:${VERSION_TAG}" "ghcr.io/${OWNER}/dslf:builder" \
+                     "docker.io/vpetersson/dslf:${VERSION_TAG}" "docker.io/vpetersson/dslf:builder"; do
             echo "== ${tag}"
             # Match the architecture names loosely: the raw manifest JSON is not
             # guaranteed to be formatted one particular way.
