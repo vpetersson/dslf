@@ -107,12 +107,12 @@ Use the multi-stage build with the pre-built builder image:
 
 ```dockerfile
 # Dockerfile
-FROM vpetersson/dslf:builder AS static
+FROM ghcr.io/vpetersson/dslf:builder AS static
 COPY redirects.csv ./
 COPY link-index.yaml ./
 RUN bun run build
 
-FROM vpetersson/dslf:latest
+FROM ghcr.io/vpetersson/dslf:latest
 COPY --from=static /static/dist /app/static
 COPY --from=static /static/redirects.csv /app/
 ```
@@ -138,17 +138,27 @@ services:
 If you don't need a landing page, mount `redirects.csv` at runtime:
 
 ```bash
-docker run -p 3000:3000 -v $(pwd)/redirects.csv:/app/redirects.csv vpetersson/dslf:latest
+docker run -p 3000:3000 -v $(pwd)/redirects.csv:/app/redirects.csv ghcr.io/vpetersson/dslf:latest
 ```
 
 ### Available Images
 
-| Image                       | Description                            |
-| --------------------------- | -------------------------------------- |
-| `vpetersson/dslf:latest`    | Runtime image with default assets      |
-| `vpetersson/dslf:builder`   | Builder image for custom builds        |
-| `vpetersson/dslf:v1.2.0`    | Specific version                       |
-| `ghcr.io/vpetersson/dslf:*` | Same tags on GitHub Container Registry |
+Images are published to the GitHub Container Registry. No login is needed to pull
+them.
+
+| Image                             | Description                       |
+| --------------------------------- | --------------------------------- |
+| `ghcr.io/vpetersson/dslf:latest`  | Runtime image with default assets |
+| `ghcr.io/vpetersson/dslf:builder` | Builder image for custom builds   |
+| `ghcr.io/vpetersson/dslf:v1.2.0`  | Specific version                  |
+
+Both images are built for `linux/amd64` and `linux/arm64`.
+
+> **Moving from Docker Hub.** Images used to be published to `vpetersson/dslf`
+> on Docker Hub as well. That repository is no longer updated: the tags there
+> still resolve, so nothing breaks immediately, but they are frozen at the last
+> build before the move and will drift further behind with every release. Swap
+> `vpetersson/dslf` for `ghcr.io/vpetersson/dslf` when convenient.
 
 ## CLI Reference
 
