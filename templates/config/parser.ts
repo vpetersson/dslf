@@ -1,4 +1,6 @@
-import yaml from "js-yaml";
+// Named import, not default: js-yaml 5 dropped the default export, and this is
+// the form that works on both 4 and 5.
+import { load as loadYaml } from "js-yaml";
 
 import { ConfigSchema, type Config } from "./schema";
 
@@ -12,7 +14,7 @@ export function parseConfig(yamlContent: string): Config {
   // Parse YAML to object
   let raw: unknown;
   try {
-    raw = yaml.load(yamlContent);
+    raw = loadYaml(yamlContent);
   } catch (error) {
     const yamlError = error as Error;
     throw new Error(`YAML parsing error: ${yamlError.message}`);
