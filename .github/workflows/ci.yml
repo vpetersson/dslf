@@ -103,12 +103,26 @@ jobs:
   # ============================================================================
   # Docker build - waits for both test jobs
   # ============================================================================
-  docker:
-    name: Docker Build and Push
-    runs-on: ubuntu-latest
+  # ============================================================================
+  # Docker
+  #
+  # arm64 used to be built on the x86 runner through QEMU, and stage 2 of the
+  # runtime Dockerfile is a full `cargo build --release` of axum, tokio and
+  # reqwest. Emulating that compile was essentially the entire pipeline: on the
+  # last two master runs the Rust and TypeScript jobs finished in well under a
+  # minute each while the Docker job took 33m25s and 37m41s.
+  #
+  # Each architecture is now built on a runner of its own architecture, so
+  # nothing is emulated. Because the two halves finish on different machines,
+  # they are pushed by digest and a final job assembles the manifest list that
+  # gives the tags their multi-arch meaning.
+  # ============================================================================
+  docker-pr:
+    name: Docker Build (PR check)
+    runs-on: ubuntu-24.04
     needs: [test-rust, test-bun]
+    if: github.event_name != 'push'
     permissions:
-      packages: write
       contents: read
 
     steps:
@@ -118,67 +132,179 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # Unchanged from before: a pull request builds amd64 only and never
+      # pushed, so PR feedback was already quick. This keeps that.
+      - name: Build runtime image (amd64 only)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: vpetersson/dslf:${{ github.sha }}
+
+      - name: Test Docker container
+        run: |
+          docker run --rm vpetersson/dslf:${{ github.sha }} --help
+          echo "Docker container test passed"
+
+  docker-build:
+    name: Docker Build (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    needs: [test-rust, test-bun]
+    if: github.event_name == 'push'
+    permissions:
+      packages: write
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            platform: linux/arm64
+            # Free for public repositories. This is the whole point of the
+            # change: a native arm64 machine rather than emulation.
+            runner: ubuntu-24.04-arm
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: vpetersson
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # push-by-digest uploads the layers and returns a digest without claiming
+      # any tag. The tags are attached later, once both architectures exist.
+      - name: Build and push runtime image by digest
+        id: runtime
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          platforms: ${{ matrix.platform }}
+          cache-from: type=gha,scope=runtime-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=runtime-${{ matrix.arch }}
+          outputs: type=image,"name=docker.io/vpetersson/dslf,ghcr.io/${{ github.repository_owner }}/dslf",push-by-digest=true,name-canonical=true,push=true
+
+      - name: Build and push builder image by digest
+        id: builder
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.builder
+          platforms: ${{ matrix.platform }}
+          cache-from: type=gha,scope=builder-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=builder-${{ matrix.arch }}
+          outputs: type=image,"name=docker.io/vpetersson/dslf,ghcr.io/${{ github.repository_owner }}/dslf",push-by-digest=true,name-canonical=true,push=true
+
+      - name: Record digests
+        run: |
+          mkdir -p /tmp/digests/runtime /tmp/digests/builder
+          touch "/tmp/digests/runtime/${{ steps.runtime.outputs.digest }}"
+          touch "/tmp/digests/builder/${{ steps.builder.outputs.digest }}"
+
+      - name: Upload digests
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  docker-manifest:
+    name: Docker Manifest
+    runs-on: ubuntu-24.04
+    needs: [docker-build]
+    if: github.event_name == 'push'
+    permissions:
+      packages: write
+      contents: read
+
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          pattern: digests-*
+          path: /tmp/digests
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: vpetersson
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Prepare Docker tags
         id: meta
         run: |
-          # Sanitize ref name for Docker tags (replace / with -)
           CLEAN_REF=$(echo "${{ github.ref_name }}" | sed 's/\//-/g')
           echo "clean_ref=${CLEAN_REF}" >> $GITHUB_OUTPUT
-
-          # Determine if this should be 'latest' tag
           if [[ "${{ github.ref_name }}" == "master" ]]; then
             echo "version_tag=latest" >> $GITHUB_OUTPUT
           else
             echo "version_tag=${CLEAN_REF}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Log in to GitHub Container Registry
-        if: github.event_name == 'push'
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-      - name: Login to Docker Hub
-        if: github.event_name == 'push'
-        uses: docker/login-action@v3
-        with:
-          username: vpetersson
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build and conditionally push Docker images (runtime)
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: Dockerfile
-          # Multi-platform for push, single platform for testing
-          platforms: ${{ github.event_name == 'push' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
-          push: ${{ github.event_name == 'push' }}
-          load: ${{ github.event_name != 'push' }}
-          # Enable Docker layer caching for faster builds
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: |
-            vpetersson/dslf:${{ steps.meta.outputs.version_tag }}
-            ghcr.io/${{ github.repository_owner }}/dslf:${{ steps.meta.outputs.version_tag }}
-            vpetersson/dslf:${{ github.sha }}
-            ghcr.io/${{ github.repository_owner }}/dslf:${{ github.sha }}
-
-      - name: Build and push Docker builder image
-        if: github.event_name == 'push'
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: Dockerfile.builder
-          platforms: linux/amd64,linux/arm64
-          push: true
-          cache-from: type=gha,scope=builder
-          cache-to: type=gha,mode=max,scope=builder
-          tags: |
-            vpetersson/dslf:builder
-            vpetersson/dslf:builder-${{ steps.meta.outputs.version_tag }}
-            ghcr.io/${{ github.repository_owner }}/dslf:builder
-            ghcr.io/${{ github.repository_owner }}/dslf:builder-${{ steps.meta.outputs.version_tag }}
-
-      - name: Test Docker container
-        if: github.event_name != 'push'
+      # One manifest list per repository, built from the per-architecture
+      # digests. The tag set is the same as before this change.
+      - name: Create manifest lists
+        env:
+          VERSION_TAG: ${{ steps.meta.outputs.version_tag }}
+          SHA: ${{ github.sha }}
+          OWNER: ${{ github.repository_owner }}
         run: |
-          docker run --rm vpetersson/dslf:${{ github.sha }} --help
-          echo "Docker container test passed"
+          set -euo pipefail
+          for repo in "docker.io/vpetersson/dslf" "ghcr.io/${OWNER}/dslf"; do
+            runtime_srcs=$(printf "${repo}@%s " $(ls /tmp/digests/runtime))
+            builder_srcs=$(printf "${repo}@%s " $(ls /tmp/digests/builder))
+
+            echo "Runtime manifest for ${repo}"
+            docker buildx imagetools create \
+              --tag "${repo}:${VERSION_TAG}" \
+              --tag "${repo}:${SHA}" \
+              ${runtime_srcs}
+
+            echo "Builder manifest for ${repo}"
+            docker buildx imagetools create \
+              --tag "${repo}:builder" \
+              --tag "${repo}:builder-${VERSION_TAG}" \
+              ${builder_srcs}
+          done
+
+      - name: Verify both architectures are present
+        env:
+          VERSION_TAG: ${{ steps.meta.outputs.version_tag }}
+        run: |
+          set -euo pipefail
+          # A manifest list missing an architecture would still pull fine on the
+          # machine that built it, so check rather than assume.
+          for tag in "docker.io/vpetersson/dslf:${VERSION_TAG}" "docker.io/vpetersson/dslf:builder"; do
+            echo "== ${tag}"
+            # Match the architecture names loosely: the raw manifest JSON is not
+            # guaranteed to be formatted one particular way.
+            out=$(docker buildx imagetools inspect "${tag}" --raw)
+            echo "${out}" | grep -q 'amd64' || { echo "amd64 missing from ${tag}"; exit 1; }
+            echo "${out}" | grep -q 'arm64' || { echo "arm64 missing from ${tag}"; exit 1; }
+            echo "amd64 and arm64 both present"
+          done
