@@ -20,26 +20,26 @@
     "quality": "bun run lint:check && bun run format:check && bun run test"
   },
   "devDependencies": {
-    "@tailwindcss/cli": "^4.1.11",
+    "@tailwindcss/cli": "^4.3.3",
     "@types/bun": "latest",
     "@types/js-yaml": "^4.0.9",
-    "@typescript-eslint/eslint-plugin": "^8.38.0",
-    "@typescript-eslint/parser": "^8.38.0",
-    "eslint": "^9.32.0",
+    "@typescript-eslint/eslint-plugin": "^8.65.0",
+    "@typescript-eslint/parser": "^8.65.0",
+    "eslint": "^10.8.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-node": "^11.1.0",
-    "eslint-plugin-promise": "^7.2.1",
-    "prettier": "^3.6.2",
-    "tailwindcss": "^4.1.11"
+    "eslint-plugin-promise": "^7.3.0",
+    "prettier": "^3.9.6",
+    "tailwindcss": "^4.3.3"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
-    "@fontsource/inter": "^5.2.8",
-    "@fortawesome/fontawesome-free": "^7.1.0",
-    "js-yaml": "^4.1.0",
-    "zod": "^4.3.5"
+    "@fontsource/inter": "^5.3.0",
+    "@fortawesome/fontawesome-free": "^7.3.1",
+    "js-yaml": "^5.2.2",
+    "zod": "^4.4.3"
   }
 }
