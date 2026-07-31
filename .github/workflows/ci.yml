@@ -212,11 +212,19 @@ jobs:
           cache-to: type=gha,mode=max,scope=builder-${{ matrix.arch }}
           outputs: type=image,"name=docker.io/vpetersson/dslf,ghcr.io/${{ github.repository_owner }}/dslf",push-by-digest=true,name-canonical=true,push=true
 
+      # The digest is the filename, but upload-artifact rejects ":" in paths, so
+      # store the bare hash and put the "sha256:" prefix back when the manifest
+      # is assembled.
       - name: Record digests
+        env:
+          RUNTIME_DIGEST: ${{ steps.runtime.outputs.digest }}
+          BUILDER_DIGEST: ${{ steps.builder.outputs.digest }}
         run: |
+          set -euo pipefail
           mkdir -p /tmp/digests/runtime /tmp/digests/builder
-          touch "/tmp/digests/runtime/${{ steps.runtime.outputs.digest }}"
-          touch "/tmp/digests/builder/${{ steps.builder.outputs.digest }}"
+          touch "/tmp/digests/runtime/${RUNTIME_DIGEST#sha256:}"
+          touch "/tmp/digests/builder/${BUILDER_DIGEST#sha256:}"
+          ls -R /tmp/digests
 
       - name: Upload digests
         uses: actions/upload-artifact@v4
@@ -276,8 +284,8 @@ jobs:
         run: |
           set -euo pipefail
           for repo in "docker.io/vpetersson/dslf" "ghcr.io/${OWNER}/dslf"; do
-            runtime_srcs=$(printf "${repo}@%s " $(ls /tmp/digests/runtime))
-            builder_srcs=$(printf "${repo}@%s " $(ls /tmp/digests/builder))
+            runtime_srcs=$(printf "${repo}@sha256:%s " $(ls /tmp/digests/runtime))
+            builder_srcs=$(printf "${repo}@sha256:%s " $(ls /tmp/digests/builder))
 
             echo "Runtime manifest for ${repo}"
             docker buildx imagetools create \
