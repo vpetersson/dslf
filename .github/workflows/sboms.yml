@@ -56,7 +56,7 @@ jobs:
           API_BASE_URL: https://app.sbomify.com
           SBOMIFY_CACHE_DIR: ${{ github.workspace }}/.sbomify-cache
           SYFT_CACHE_DIR: ${{ github.workspace }}/.sbomify-cache/syft
-          PRODUCT_RELEASE: '["W9dOu80ByHo7:${{ steps.ver.outputs.v }}"]'
+          PRODUCT_RELEASE: '["rQBEJcTatQHH:${{ steps.ver.outputs.v }}"]'
       # ---------------------------------------------------------------------
       # Build-provenance attestation (SLSA v1)
       # ---------------------------------------------------------------------
