@@ -8,7 +8,7 @@ jobs:
   upload-sbom:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Pinned to a release rather than @master. A moving branch means whatever
       # is on it at the time runs here with SBOMIFY_TOKEN in the environment,
