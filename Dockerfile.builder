@@ -2,12 +2,12 @@
 # Contains Bun and all npm dependencies pre-installed for fast user builds
 #
 # Usage in user's Dockerfile:
-#   FROM vpetersson/dslf:builder AS static
+#   FROM ghcr.io/vpetersson/dslf:builder AS static
 #   COPY link-index.yaml ./
 #   COPY redirects.csv ./
 #   RUN bun run build
 #
-#   FROM vpetersson/dslf:latest
+#   FROM ghcr.io/vpetersson/dslf:latest
 #   COPY --from=static /static/dist /app/static
 #   COPY --from=static /static/redirects.csv /app/
 

@@ -10,7 +10,7 @@
 # =============================================================================
 # Stage 1: Build static assets using pre-built builder image
 # =============================================================================
-FROM vpetersson/dslf:builder AS static
+FROM ghcr.io/vpetersson/dslf:builder AS static
 
 # Copy your configuration files
 # - redirects.csv: Required - your short link redirects
@@ -24,7 +24,7 @@ RUN bun run build
 # =============================================================================
 # Stage 2: Create minimal runtime image
 # =============================================================================
-FROM vpetersson/dslf:latest
+FROM ghcr.io/vpetersson/dslf:latest
 
 # Copy your custom static assets (overrides defaults)
 COPY --from=static /static/dist /app/static
