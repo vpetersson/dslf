@@ -1,6 +1,6 @@
 # DSLF - Damn Small Link Forwarder
 
-[![sbomified](https://sbomify.com/assets/images/logo/badge.svg)](https://app.sbomify.com/public/component/Tp1KWwHmzC1i)
+[![sbomified](https://sbomify.com/assets/images/logo/badge.svg)](https://app.sbomify.com/public/product/rQBEJcTatQHH/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 A blazing fast, self-hosted link shortener and LinkTree-style page builder. Built with Rust for maximum performance and minimal resource usage.
