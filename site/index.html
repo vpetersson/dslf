@@ -89,20 +89,14 @@ location: https://github.com/you
         Figures quoted from the project's own README rather than measured here.
         Framed as what the project claims, not as a benchmark this page ran.
       -->
-      <div class="wrap"><div class="specs">
-        <div class="spec">
-          <b>5 MB</b><span>binary, per the project's README</span>
+      <div class="wrap">
+        <div class="specs">
+          <div class="spec"><b>5 MB</b><span>binary, per the project's README</span></div>
+          <div class="spec"><b>&lt;10 MB</b><span>resident memory</span></div>
+          <div class="spec"><b>0</b><span>databases, queues or brokers</span></div>
+          <div class="spec"><b>amd64 · arm64</b><span>images, built natively</span></div>
         </div>
-        <div class="spec">
-          <b>&lt;10 MB</b><span>resident memory</span>
-        </div>
-        <div class="spec">
-          <b>0</b><span>databases, queues or brokers</span>
-        </div>
-        <div class="spec">
-          <b>amd64 · arm64</b><span>images, built natively</span>
-        </div>
-      </div></div>
+      </div>
 
       <section id="start">
         <div class="wrap">
@@ -110,7 +104,9 @@ location: https://github.com/you
           <p class="section-sub">
             The image ships with example config, so it runs before you have written anything.
           </p>
-          <pre class="block"><span class="tok-dim"># Run it with your own redirects mounted in</span>
+          <pre
+            class="block"
+          ><span class="tok-dim"># Run it with your own redirects mounted in</span>
 docker run -p 3000:3000 \
   -v $(pwd)/redirects.csv:/app/redirects.csv \
   ghcr.io/vpetersson/dslf:latest</pre>
@@ -133,7 +129,14 @@ docker run -p 3000:3000 \
         </div>
       </section>
 
-      <section id="config" style="background: var(--base); border-top: 1px solid var(--surface0); border-bottom: 1px solid var(--surface0)">
+      <section
+        id="config"
+        style="
+          background: var(--base);
+          border-top: 1px solid var(--surface0);
+          border-bottom: 1px solid var(--surface0);
+        "
+      >
         <div class="wrap">
           <h2>Two files, both optional to learn</h2>
           <p class="section-sub">
