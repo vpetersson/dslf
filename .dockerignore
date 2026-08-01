@@ -58,6 +58,11 @@ test-*.csv
 # Documentation
 README.md
 
+# Website (published to GitHub Pages, never part of an image)
+# Includes CNAME once a custom domain is configured: that file belongs to the
+# Pages deploy, not to the container.
+site/
+
 # Docker
 Dockerfile
 .dockerignore
