@@ -1,5 +1,15 @@
 # Build artifacts
 /target/
+
+# Node dependencies and generated static output.
+#
+# Neither is copied by any Dockerfile. The static stage runs
+# `bun install --frozen-lockfile` and `bun run build` itself, so it creates both
+# inside the image, pinned to bun.lock rather than to whatever happens to be on
+# the machine doing the build. Sending them anyway cost ~171 MB of upload on
+# every build for files the build never reads.
+node_modules/
+/dist/
 **/*.rs.bk
 *.pdb
 
