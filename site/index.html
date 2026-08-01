@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DSLF — a self-hosted link forwarder in 5 MB</title>
+    <meta
+      name="description"
+      content="Damn Small Link Forwarder: a self-hosted link shortener and link-index page. One CSV of redirects, a 5 MB Rust binary, no database. Apache-2.0."
+    />
+    <link rel="canonical" href="https://vpetersson.github.io/dslf/" />
+    <meta name="theme-color" content="#e6e9ef" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#181825" media="(prefers-color-scheme: dark)" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://vpetersson.github.io/dslf/" />
+    <meta property="og:title" content="DSLF — a self-hosted link forwarder in 5 MB" />
+    <meta
+      property="og:description"
+      content="One CSV of redirects, a 5 MB Rust binary, no database. Replaces a hosted link shortener with something you run yourself."
+    />
+    <meta name="twitter:card" content="summary" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "DSLF — Damn Small Link Forwarder",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Linux, macOS, Docker",
+        "url": "https://vpetersson.github.io/dslf/",
+        "codeRepository": "https://github.com/vpetersson/dslf",
+        "license": "https://www.apache.org/licenses/LICENSE-2.0",
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+      }
+    </script>
+
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap top-row">
+        <a class="brand" href="./">dslf<span>/</span></a>
+        <nav class="top-links">
+          <a href="#start">Quick start</a>
+          <a href="#config">Config</a>
+          <a href="https://github.com/vpetersson/dslf">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="wrap">
+          <h1>Your links,<br /><em>on your own box.</em></h1>
+          <p class="lede">
+            Damn Small Link Forwarder is a self-hosted link shortener and link-index page. The
+            configuration is a CSV file. There is no database, no dashboard and no account, because
+            a redirect does not need any of them.
+          </p>
+
+          <!-- The whole product, stated as the artifact rather than a claim. -->
+          <div class="transform">
+            <div class="panel">
+              <span class="label">redirects.csv</span>
+              <pre><span class="tok-dim">url,target,status</span>
+<span class="tok-key">/gh</span>,https://github.com/you,<span class="tok-num">301</span>
+<span class="tok-key">/blog</span>,https://yourblog.com,<span class="tok-num">301</span>
+<span class="tok-key">/promo</span>,https://you.com/offer,<span class="tok-num">302</span></pre>
+            </div>
+            <div class="arrow" aria-hidden="true">→</div>
+            <div class="panel">
+              <span class="label">GET /gh</span>
+              <pre>HTTP/1.1 <span class="tok-num">301</span> Moved Permanently
+location: https://github.com/you
+<span class="tok-dim">content-length: 0</span></pre>
+            </div>
+          </div>
+
+          <div class="cta-row">
+            <a class="btn btn-primary" href="#start">Run it in two minutes</a>
+            <a class="btn btn-ghost" href="https://github.com/vpetersson/dslf">Source on GitHub</a>
+          </div>
+        </div>
+      </section>
+
+      <!--
+        Figures quoted from the project's own README rather than measured here.
+        Framed as what the project claims, not as a benchmark this page ran.
+      -->
+      <div class="wrap"><div class="specs">
+        <div class="spec">
+          <b>5 MB</b><span>binary, per the project's README</span>
+        </div>
+        <div class="spec">
+          <b>&lt;10 MB</b><span>resident memory</span>
+        </div>
+        <div class="spec">
+          <b>0</b><span>databases, queues or brokers</span>
+        </div>
+        <div class="spec">
+          <b>amd64 · arm64</b><span>images, built natively</span>
+        </div>
+      </div></div>
+
+      <section id="start">
+        <div class="wrap">
+          <h2>Quick start</h2>
+          <p class="section-sub">
+            The image ships with example config, so it runs before you have written anything.
+          </p>
+          <pre class="block"><span class="tok-dim"># Run it with your own redirects mounted in</span>
+docker run -p 3000:3000 \
+  -v $(pwd)/redirects.csv:/app/redirects.csv \
+  ghcr.io/vpetersson/dslf:latest</pre>
+          <ol class="steps">
+            <li>
+              <h3>Write a CSV</h3>
+              <p>One row per link: the path, where it goes, and 301 or 302.</p>
+            </li>
+            <li>
+              <h3>Mount it</h3>
+              <p>
+                Mount the file at runtime, or bake it into an image with the example Dockerfile.
+              </p>
+            </li>
+            <li>
+              <h3>Point a domain at it</h3>
+              <p>Any host that can run a container will do. It is one process and one port.</p>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section id="config" style="background: var(--base); border-top: 1px solid var(--surface0); border-bottom: 1px solid var(--surface0)">
+        <div class="wrap">
+          <h2>Two files, both optional to learn</h2>
+          <p class="section-sub">
+            <code>redirects.csv</code> is the only file you need. Add
+            <code>link-index.yaml</code> if you also want a link-index page at the root, themed with
+            Catppuccin.
+          </p>
+          <pre class="block"><span class="tok-dim"># link-index.yaml</span>
+profile:
+  <span class="tok-key">name</span>: "Your Name"
+  <span class="tok-key">bio</span>: "Short line about you"
+
+theme:
+  <span class="tok-key">preset</span>: mocha        <span class="tok-dim"># mocha | macchiato | frappe | latte</span>
+  <span class="tok-key">buttonStyle</span>: glass   <span class="tok-dim"># glass | solid | outline</span></pre>
+          <p class="section-sub" style="margin-bottom: 0">
+            Both files can be mounted at runtime, so changing a link is a file edit and a restart,
+            not a deploy.
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap">
+          <h2>What you get</h2>
+          <div class="feature-grid">
+            <div class="feature">
+              <h3>Real redirects</h3>
+              <p>
+                Proper 301 and 302 responses with a <code>Location</code> header, so curl, scripts
+                and link checkers follow them the way browsers do.
+              </p>
+            </div>
+            <div class="feature">
+              <h3>No database</h3>
+              <p>
+                Configuration is a CSV and a YAML file. Nothing to migrate, back up, or wake at 3am
+                for.
+              </p>
+            </div>
+            <div class="feature">
+              <h3>No tracking</h3>
+              <p>
+                No analytics, no cookies, no third-party requests. Visitors are redirected and that
+                is the end of it.
+              </p>
+            </div>
+            <div class="feature">
+              <h3>Link-index page</h3>
+              <p>
+                An optional landing page in place of a hosted link-in-bio service, themed with
+                Catppuccin.
+              </p>
+            </div>
+            <div class="feature">
+              <h3>Import what you have</h3>
+              <p>Pull existing short links out of Rebrandly with one command.</p>
+            </div>
+            <div class="feature">
+              <h3>Published with an SBOM</h3>
+              <p>
+                Each release publishes a software bill of materials, so what is inside the image is
+                a matter of record.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site">
+      <div class="wrap foot-row">
+        <span>Apache-2.0. Built in Rust.</span>
+        <span>
+          <a href="https://github.com/vpetersson/dslf">Source</a> ·
+          <a href="https://github.com/vpetersson/dslf/issues">Issues</a> ·
+          <a href="https://github.com/vpetersson/dslf/pkgs/container/dslf">Container image</a>
+        </span>
+      </div>
+    </footer>
+  </body>
+</html>

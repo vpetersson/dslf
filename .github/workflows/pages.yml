@@ -1,0 +1,91 @@
+name: Site
+
+# The project had no website. This publishes site/ to GitHub Pages.
+#
+# Separate from ci.yml on purpose: the site is static HTML and CSS with no build
+# step, so it has nothing to do with the Rust tests or the container images, and
+# a docs typo should not queue behind a 4-minute Docker matrix.
+on:
+  push:
+    branches: [master]
+    paths:
+      - "site/**"
+      - ".github/workflows/pages.yml"
+  pull_request:
+    branches: [master]
+    paths:
+      - "site/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Runs on pull requests too, where it only checks. Deploying needs secrets a
+  # fork PR does not get, and a broken link in the site should still be caught
+  # before it is merged.
+  check:
+    name: Check site
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Every local link and asset resolves
+        run: |
+          set -euo pipefail
+          cd site
+          fail=0
+          # Local hrefs and srcs only: external links are not this job's problem,
+          # and hitting them here would make the build depend on other people's
+          # uptime.
+          for ref in $(grep -ohE '(href|src)="\./[^"]+"' ./*.html | sed -E 's/.*"\.\/([^"]+)".*/\1/' | sort -u); do
+            if [ ! -f "$ref" ]; then echo "missing: $ref"; fail=1; fi
+          done
+          test "$fail" -eq 0
+          echo "all local references resolve"
+
+      - name: HTML has the basics
+        run: |
+          set -euo pipefail
+          cd site
+          grep -q '<title>' index.html
+          grep -q 'name="description"' index.html
+          grep -q 'rel="canonical"' index.html
+          grep -q 'lang="en"' index.html
+          echo "title, description, canonical and lang present"
+
+  deploy:
+    name: Deploy to Pages
+    if: github.event_name != 'pull_request'
+    needs: [check]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          # Turns Pages on for the repository the first time this runs, so the
+          # deploy does not need a manual settings change first.
+          enablement: true
+
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
