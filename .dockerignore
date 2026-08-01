@@ -1,5 +1,17 @@
 # Build artifacts
 /target/
+
+# Node dependencies and generated static output.
+#
+# Neither is copied from the context by any Dockerfile stage. The static stage
+# runs `bun install --frozen-lockfile` and `bun run build` itself, so it creates
+# both inside the image, pinned to bun.lock rather than to whatever happens to
+# be on the machine doing the build; the runtime stage takes dist via
+# `COPY --from=static`. Sending them anyway meant uploading files the build
+# never reads: measured 136.90 MB of context without these two lines, 103.74 kB
+# with them.
+node_modules/
+/dist/
 **/*.rs.bk
 *.pdb
 
