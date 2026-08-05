@@ -159,6 +159,22 @@ Both images are built for `linux/amd64` and `linux/arm64`.
 > current. ghcr is the primary now and is what the rest of these docs use;
 > Docker Hub is a mirror kept for existing users.
 
+### Health checks
+
+`GET /health` returns `200` with the body `ok`, for orchestrator liveness and
+readiness probes:
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 3000
+```
+
+It is consulted **last**: a redirect of your own named `/health`, or a static
+file at that path, still takes precedence. Adding a health check cannot shadow a
+link you have already published.
+
 ## CLI Reference
 
 ```

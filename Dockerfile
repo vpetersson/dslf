@@ -107,7 +107,9 @@ ENV STATIC_DIR=/app/static \
 
 EXPOSE 3000
 
-# Note: For health checks, configure your orchestrator to probe GET /health
+# Health checks: GET /health returns 200 "ok".
+# A redirect (or static file) of your own named /health still wins, so this
+# cannot shadow a link you have published.
 # Example for Kubernetes:
 #   livenessProbe:
 #     httpGet:
