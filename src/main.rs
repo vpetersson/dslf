@@ -213,6 +213,14 @@ fn create_app(
                         StatusCode::INTERNAL_SERVER_ERROR.into_response()
                     }
                 };
+
+                // Last resort: answer the health probe the Dockerfile documents,
+                // but only once redirects and static files have both declined,
+                // so neither is shadowed by it.
+                if response.status() == StatusCode::NOT_FOUND && path == HEALTH_PATH {
+                    return Ok(health_response());
+                }
+
                 Ok(response)
             }
         }))
@@ -322,6 +330,22 @@ async fn main() {
         .expect("Failed to start server");
 }
 
+/// Path answered by the built-in health check. The Dockerfile points
+/// orchestrators here, so it has to exist.
+const HEALTH_PATH: &str = "/health";
+
+/// Liveness response. Deliberately the last thing consulted: a redirect (or a
+/// static file) named `/health` still wins, so adding this cannot silently
+/// break a link somebody already published.
+fn health_response() -> Response {
+    (
+        StatusCode::OK,
+        [(header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        "ok",
+    )
+        .into_response()
+}
+
 async fn handle_redirect(
     Path(path): Path<String>,
     axum::extract::State((rules, modern)): axum::extract::State<AppState>,
@@ -336,6 +360,8 @@ async fn handle_redirect(
         let trimmed_path = request_path.trim_end_matches('/');
         if let Some((target, status)) = rules.get(trimmed_path) {
             create_redirect_response(target, *status, modern)
+        } else if request_path == HEALTH_PATH {
+            Ok(health_response())
         } else {
             Err(StatusCode::NOT_FOUND)
         }
@@ -591,6 +617,63 @@ mod tests {
 
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn test_health_endpoint_answers_when_unclaimed() {
+        // The Dockerfile tells orchestrators to probe GET /health, so it has to
+        // return 200 on a service with no redirect for it.
+        let rules = HashMap::new();
+
+        let result = handle_redirect(
+            axum::extract::Path("health".to_string()),
+            axum::extract::State((rules, false)),
+        )
+        .await;
+
+        assert_eq!(result.unwrap().status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_redirect_named_health_still_wins() {
+        // Adding the health check must not silently break a published link.
+        let mut rules = HashMap::new();
+        rules.insert(
+            "/health".to_string(),
+            ("https://example.com/status".to_string(), 301),
+        );
+
+        let result = handle_redirect(
+            axum::extract::Path("health".to_string()),
+            axum::extract::State((rules, false)),
+        )
+        .await;
+
+        let response = result.unwrap();
+        assert_eq!(response.status(), StatusCode::MOVED_PERMANENTLY);
+        assert_eq!(
+            response.headers().get(header::LOCATION).unwrap(),
+            "https://example.com/status"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_other_unknown_paths_still_404() {
+        // The health check is exact-match; it must not soak up neighbours.
+        let rules = HashMap::new();
+
+        for path in ["healthz", "health/sub", "healthcheck"] {
+            let result = handle_redirect(
+                axum::extract::Path(path.to_string()),
+                axum::extract::State((rules.clone(), false)),
+            )
+            .await;
+            assert_eq!(
+                result.unwrap_err(),
+                StatusCode::NOT_FOUND,
+                "expected 404 for /{path}"
+            );
+        }
     }
 
     #[tokio::test]
