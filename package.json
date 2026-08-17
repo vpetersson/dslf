@@ -23,9 +23,9 @@
     "@tailwindcss/cli": "^4.3.3",
     "@types/bun": "latest",
     "@types/js-yaml": "^4.0.9",
-    "@typescript-eslint/eslint-plugin": "^8.65.0",
-    "@typescript-eslint/parser": "^8.65.0",
-    "eslint": "^10.8.0",
+    "@typescript-eslint/eslint-plugin": "^8.67.0",
+    "@typescript-eslint/parser": "^8.67.0",
+    "eslint": "^10.8.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-node": "^11.1.0",
@@ -39,7 +39,7 @@
   "dependencies": {
     "@fontsource/inter": "^5.3.0",
     "@fortawesome/fontawesome-free": "^7.3.1",
-    "js-yaml": "^5.2.2",
+    "js-yaml": "^5.2.3",
     "zod": "^4.4.3"
   }
 }
