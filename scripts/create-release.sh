@@ -1,21 +1,21 @@
 #!/bin/bash
 
 # DSLF Release Helper Script
-# Creates a new release with proper semantic versioning
+# Creates a new release using CalVer (YYYY.MM.MICRO)
 #
 # This script automates the release process by:
 # - Validating the git repository state (clean working directory, proper branch)
-# - Parsing existing tags to suggest next semantic version (patch/minor/major)
-# - Running comprehensive quality checks (tests, build, binary validation)
-# - Creating and pushing annotated git tags to trigger CI/CD pipeline
+# - Working out the next CalVer number for the current month from existing tags
+# - Checking that Cargo.toml and Cargo.lock already carry that version
+# - Running quality checks (tests, release build, binary validation)
+# - Creating and pushing an annotated git tag, then the GitHub release
 #
-# The CI/CD pipeline will then automatically:
-# - Build cross-platform binaries for Linux, macOS, and Windows
-# - Create GitHub releases with downloadable assets
-# - Build and push Docker images to Docker Hub and GitHub Container Registry
+# Pushing the tag triggers CI, which builds and publishes the multi-arch Docker
+# images to ghcr.io and Docker Hub, and the SBOM workflow, which uploads SBOMs
+# for the tagged version.
 #
 # Usage: ./scripts/create-release.sh
-# Prerequisites: Clean git working directory, all tests must pass
+# Prerequisites: Clean git working directory, all tests must pass, gh CLI
 
 set -e
 
@@ -24,6 +24,11 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
+
+# CalVer: four-digit year, month without a leading zero, micro from 0.
+# The month is unpadded because Cargo requires a SemVer-valid version string and
+# SemVer forbids leading zeros, so "2026.09.0" would not parse.
+CALVER_RE='^v([0-9]{4})\.(1[0-2]|[1-9])\.([0-9]+)$'
 
 # Function to print colored output
 print_info() {
@@ -61,53 +66,42 @@ if ! git diff-index --quiet HEAD --; then
     exit 1
 fi
 
-# Get the latest tag
-latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-print_info "Latest tag: $latest_tag"
+# Current CalVer series, in UTC so the suggested month does not depend on where
+# the release is cut from.
+year=$(date -u +%Y)
+month=$(date -u +%-m)
+series="${year}.${month}"
 
-# Parse version components
-if [[ $latest_tag =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)(.*)$ ]]; then
-    major=${BASH_REMATCH[1]}
-    minor=${BASH_REMATCH[2]}
-    patch=${BASH_REMATCH[3]}
-    suffix=${BASH_REMATCH[4]}
+# Highest micro already released this month. Tags from other months (and the
+# pre-CalVer v1.x tags) are ignored: the micro restarts at 0 each month.
+latest_micro=$(git tag -l "v${series}.*" \
+    | sed -nE "s/^v${series}\.([0-9]+)$/\1/p" \
+    | sort -n \
+    | tail -1)
+
+if [ -z "$latest_micro" ]; then
+    next_version="v${series}.0"
+    print_info "No releases yet for ${series}; first one this month"
 else
-    print_warning "Could not parse latest tag. Starting from v0.0.0"
-    major=0
-    minor=0
-    patch=0
-    suffix=""
+    next_version="v${series}.$((latest_micro + 1))"
+    print_info "Latest tag this month: v${series}.${latest_micro}"
 fi
 
-# Suggest next versions
-next_patch="v$major.$minor.$((patch + 1))"
-next_minor="v$major.$((minor + 1)).0"
-next_major="v$((major + 1)).0.0"
-
 echo
-echo "Suggested next versions:"
-echo "  1) Patch release: $next_patch"
-echo "  2) Minor release: $next_minor"
-echo "  3) Major release: $next_major"
-echo "  4) Custom version"
+echo "Next version: $next_version"
+echo "  1) Use $next_version"
+echo "  2) Custom version"
 
-read -p "Choose an option (1-4): " choice
+read -p "Choose an option (1-2): " choice
 
 case $choice in
     1)
-        new_version=$next_patch
+        new_version=$next_version
         ;;
     2)
-        new_version=$next_minor
-        ;;
-    3)
-        new_version=$next_major
-        ;;
-    4)
-        read -p "Enter custom version (e.g., v1.2.3): " new_version
-        # Validate version format
-        if [[ ! $new_version =~ ^v[0-9]+\.[0-9]+\.[0-9]+.*$ ]]; then
-            print_error "Invalid version format. Use semantic versioning (e.g., v1.2.3)"
+        read -p "Enter custom version (e.g., v${series}.0): " new_version
+        if [[ ! $new_version =~ $CALVER_RE ]]; then
+            print_error "Invalid version. Use CalVer: vYYYY.MM.MICRO (e.g. v${series}.0)"
             exit 1
         fi
         ;;
@@ -120,6 +114,22 @@ esac
 # Check if tag already exists
 if git tag -l | grep -q "^$new_version$"; then
     print_error "Tag $new_version already exists"
+    exit 1
+fi
+
+# The manifest and the tag have drifted apart before. Catch it here rather than
+# shipping a binary that reports a version nobody released.
+version_number=${new_version#v}
+cargo_version=$(sed -nE '0,/^version = /s/^version = "(.*)"$/\1/p' Cargo.toml)
+lock_version=$(awk '/^name = "dslf"$/{getline; sub(/^version = "/, ""); sub(/"$/, ""); print; exit}' Cargo.lock)
+
+if [ "$cargo_version" != "$version_number" ] || [ "$lock_version" != "$version_number" ]; then
+    print_error "Manifest is at $cargo_version and the lockfile at $lock_version, but you are releasing $version_number"
+    echo
+    echo "Bump them on a branch, merge that, then re-run this script:"
+    echo "    sed -i '0,/^version = /s//version = \"$version_number\"/' Cargo.toml"
+    echo "    cargo update --package dslf"
+    echo "    git commit -am 'chore: release $new_version'"
     exit 1
 fi
 
@@ -143,7 +153,8 @@ print_info "All checks passed!"
 echo
 print_warning "This will:"
 echo "  - Create and push tag: $new_version"
-echo "  - Trigger CI/CD pipeline to build and publish release"
+echo "  - Publish the GitHub release with generated notes"
+echo "  - Trigger CI to build and publish the Docker images and SBOMs"
 echo
 read -p "Continue? (y/N): " -n 1 -r
 echo
@@ -160,6 +171,9 @@ git tag -a "$new_version" -m "Release $new_version"
 print_info "Pushing tag to origin..."
 git push origin "$new_version"
 
+print_info "Creating GitHub release..."
+gh release create "$new_version" --title "$new_version" --generate-notes
+
 print_info "✅ Release $new_version created successfully!"
-print_info "🚀 CI/CD pipeline will now build and publish the release"
+print_info "🚀 CI will now build and publish the Docker images and SBOMs"
 print_info "📦 Check the Actions tab and Releases page on GitHub"

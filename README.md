@@ -146,11 +146,11 @@ docker run -p 3000:3000 -v $(pwd)/redirects.csv:/app/redirects.csv ghcr.io/vpete
 Images are published to the GitHub Container Registry. No login is needed to pull
 them.
 
-| Image                             | Description                       |
-| --------------------------------- | --------------------------------- |
-| `ghcr.io/vpetersson/dslf:latest`  | Runtime image with default assets |
-| `ghcr.io/vpetersson/dslf:builder` | Builder image for custom builds   |
-| `ghcr.io/vpetersson/dslf:v1.2.0`  | Specific version                  |
+| Image                               | Description                       |
+| ----------------------------------- | --------------------------------- |
+| `ghcr.io/vpetersson/dslf:latest`    | Runtime image with default assets |
+| `ghcr.io/vpetersson/dslf:builder`   | Builder image for custom builds   |
+| `ghcr.io/vpetersson/dslf:v2026.9.0` | Specific version                  |
 
 Both images are built for `linux/amd64` and `linux/arm64`.
 
@@ -206,8 +206,33 @@ cargo test && bun test          # Tests
 ### Release
 
 ```bash
-git tag -a v1.x.0 -m "Release v1.x.0" && git push origin v1.x.0
+./scripts/create-release.sh
 ```
+
+It works out the next CalVer number from the existing tags, refuses to continue
+if `Cargo.toml` and `Cargo.lock` disagree with it, runs the tests and the
+release build, then tags, pushes and opens the GitHub release.
+
+## Versioning
+
+DSLF uses [CalVer](https://calver.org/), in the form `YYYY.MM.MICRO`:
+
+| Part    | Meaning                                            | Example |
+| ------- | -------------------------------------------------- | ------- |
+| `YYYY`  | Full year                                          | `2026`  |
+| `MM`    | Month, not zero-padded                             | `9`     |
+| `MICRO` | Release counter within that month, starting at `0` | `0`     |
+
+So the first release of September 2026 is `2026.9.0`, and the second one that
+month is `2026.9.1`. Git tags and Docker image tags keep the `v` prefix the
+earlier releases used: `v2026.9.0`.
+
+The month is not zero-padded because Cargo requires `version` in `Cargo.toml` to
+be valid SemVer, and SemVer forbids leading zeros in a numeric component.
+
+A CalVer number tells you when a release was cut, not whether it will break you.
+DSLF is a single binary driven by a CSV and a YAML file, so check the release
+notes before upgrading rather than reading it off the number.
 
 ## License
 
