@@ -20,18 +20,18 @@
     "quality": "bun run lint:check && bun run format:check && bun run test"
   },
   "devDependencies": {
-    "@tailwindcss/cli": "^4.3.4",
+    "@tailwindcss/cli": "^4.3.5",
     "@types/bun": "latest",
     "@types/js-yaml": "^4.0.9",
-    "@typescript-eslint/eslint-plugin": "^8.72.1",
-    "@typescript-eslint/parser": "^8.72.1",
+    "@typescript-eslint/eslint-plugin": "^8.72.2",
+    "@typescript-eslint/parser": "^8.72.2",
     "eslint": "^10.14.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "^7.3.0",
-    "prettier": "^3.9.10",
-    "tailwindcss": "^4.3.4"
+    "prettier": "^3.10.1",
+    "tailwindcss": "^4.3.5"
   },
   "peerDependencies": {
     "typescript": "^5"
